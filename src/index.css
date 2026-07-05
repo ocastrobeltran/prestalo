@@ -1,0 +1,214 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Colors */
+  --primary-rgb: 14, 165, 233; /* #0ea5e9 */
+  --primary: rgb(var(--primary-rgb));
+  --primary-hover: #0284c7;
+  
+  --success-rgb: 16, 185, 129; /* #10b981 */
+  --success: rgb(var(--success-rgb));
+  
+  --warning-rgb: 245, 158, 11; /* #f59e0b */
+  --warning: rgb(var(--warning-rgb));
+  
+  --danger-rgb: 239, 68, 68; /* #ef4444 */
+  --danger: rgb(var(--danger-rgb));
+  
+  /* Light Theme Variables */
+  --bg-app: #f1f5f9;
+  --bg-container: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+}
+
+/* Dark Theme Variables */
+.dark {
+  --bg-app: #0b0f19;
+  --bg-container: #111827;
+  --bg-card: #1f2937;
+  --bg-input: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-color: #374151;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(17, 24, 39, 0.8);
+  --glass-border: rgba(31, 41, 55, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: #0f172a; /* Fondo oscuro exterior tipo desktop */
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+/* Contenedor Móvil (Comportamiento híbrido PWA/Nativo) */
+#root {
+  width: 100%;
+  max-width: 480px; /* Simulación de teléfono en escritorio */
+  height: 100vh;
+  height: 100svh;
+  background-color: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Si es PWA instalada en móvil, no queremos bordes ni límites de ancho */
+@media (max-width: 480px) {
+  #root {
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+}
+
+/* Desplazamiento del contenido principal */
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: 96px; /* Espacio para el BottomNav */
+  scrollbar-width: none; /* Ocultar scroll en Firefox */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+main::-webkit-scrollbar {
+  display: none; /* Ocultar scroll en Chrome/Safari */
+}
+
+/* Tipografías */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+p, span, input, button, select, textarea {
+  font-family: var(--font-sans);
+}
+
+/* Botón flotante y botones de acción */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+  transition: transform 0.1s ease, filter 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* Estilos PWA e instalabilidad */
+.pwa-banner {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 8px;
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Animaciones */
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s ease-out forwards;
+}
+
+/* Estilos de Impresión en Recibos (PDF Nativos) */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  #root {
+    max-width: 100% !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
