@@ -8,214 +8,23 @@ const INSTALLMENTS_KEY = 'prestalo_installments';
 const CAPITAL_KEY = 'prestalo_capital';
 const TRANSACTIONS_KEY = 'prestalo_transactions';
 
-// Datos semilla basados exactamente en las capturas del cliente
-const SEED_CLIENTS: Client[] = [
-  {
-    id: 'c1',
-    name: 'Adys Taylor',
-    phone: '+57 322 5744121',
-    documentId: '1047123456',
-    address: 'Nequi',
-    createdAt: '2026-07-01',
-    status: 'active'
-  },
-  {
-    id: 'c2',
-    name: 'Ariel Machacon',
-    phone: '3812949494',
-    documentId: '73123456',
-    address: 'Lo Amador',
-    createdAt: '2026-07-01',
-    status: 'active'
-  },
-  {
-    id: 'c3',
-    name: 'Javier Ricardo',
-    phone: '+57 301 3030494',
-    documentId: '1047987654',
-    address: 'Calle De Las Florez',
-    createdAt: '2026-07-01',
-    status: 'active'
-  },
-  {
-    id: 'c4',
-    name: 'Jhon',
-    phone: '3043677840',
-    documentId: '92456789',
-    address: 'Al Lado Del Local',
-    createdAt: '2026-07-01',
-    status: 'active'
-  },
-  {
-    id: 'c5',
-    name: 'Yeison Ricardo',
-    phone: '+57 300 1234567',
-    documentId: '1143876543',
-    address: 'Calle Real #45',
-    createdAt: '2026-07-01',
-    status: 'active'
-  },
-  {
-    id: 'c6',
-    name: 'Sirly',
-    phone: '+57 310 9876543',
-    documentId: '45678901',
-    address: 'Avenida Principal',
-    createdAt: '2026-07-01',
-    status: 'active'
-  }
-];
-
-const SEED_LOANS: Loan[] = [
-  {
-    id: 'l1',
-    clientId: 'c3',
-    clientName: 'Javier Ricardo',
-    capital: 1000000,
-    interestRate: 20,
-    totalToPay: 1200000,
-    paymentFrequency: 'monthly',
-    installmentsCount: 1,
-    startDate: '2026-06-30',
-    endDate: '2026-07-30',
-    status: 'active'
-  },
-  {
-    id: 'l2',
-    clientId: 'c5',
-    clientName: 'Yeison Ricardo',
-    capital: 300000,
-    interestRate: 20,
-    totalToPay: 360000, // Capital $300k + $60k interest
-    paymentFrequency: 'monthly',
-    installmentsCount: 1,
-    startDate: '2026-06-27',
-    endDate: '2026-07-27',
-    status: 'active'
-  },
-  {
-    id: 'l3',
-    clientId: 'c4',
-    clientName: 'Jhon',
-    capital: 500000,
-    interestRate: 20,
-    totalToPay: 600000,
-    paymentFrequency: 'weekly',
-    installmentsCount: 5,
-    startDate: '2026-07-01',
-    endDate: '2026-08-05',
-    status: 'active'
-  }
-];
-
-const SEED_CAPITAL: CapitalBox = {
-  initialCapital: 10000000, // 10 Millones
-  currentCapital: 8200000, // 10M - (1M + 300k + 500k)
-  totalLent: 1800000,     // 1M + 300k + 500k
-  totalRecovered: 0,
-  totalInterestRecovered: 0
-};
-
-// Generar cuotas semilla
-const getSeedInstallments = (): Installment[] => {
-  const installments: Installment[] = [];
-  
-  // Javier Ricardo: 1 cuota de $1.200.000 vence 30/07/2026
-  installments.push({
-    id: 'l1-c1',
-    loanId: 'l1',
-    clientId: 'c3',
-    clientName: 'Javier Ricardo',
-    number: 1,
-    amount: 1200000,
-    capitalAmount: 1000000,
-    interestAmount: 200000,
-    dueDate: '2026-07-30',
-    paidDate: null,
-    status: 'pending'
-  });
-
-  // Yeison Ricardo: 1 cuota de $360.000 vence 27/07/2026
-  installments.push({
-    id: 'l2-c1',
-    loanId: 'l2',
-    clientId: 'c5',
-    clientName: 'Yeison Ricardo',
-    number: 1,
-    amount: 360000,
-    capitalAmount: 300000,
-    interestAmount: 600000,
-    dueDate: '2026-07-27',
-    paidDate: null,
-    status: 'pending'
-  });
-
-  // Jhon: 5 cuotas semanales de $120.000 cada una
-  // Primera cuota vence 08/07/2026 (según captura, "Cuota #1 Jhon $120.000 vence 08/07/2026")
-  let currentDueDate = '2026-07-01';
-  for (let i = 1; i <= 5; i++) {
-    currentDueDate = new Date(new Date(currentDueDate + 'T12:00:00').getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    installments.push({
-      id: `l3-c${i}`,
-      loanId: 'l3',
-      clientId: 'c4',
-      clientName: 'Jhon',
-      number: i,
-      amount: 120000,
-      capitalAmount: 100000,
-      interestAmount: 20000,
-      dueDate: currentDueDate,
-      paidDate: null,
-      status: 'pending'
-    });
-  }
-
-  return installments;
-};
-
-const SEED_TRANSACTIONS: CapitalTransaction[] = [
-  {
-    id: 't-init',
-    amount: 10000000,
-    type: 'initial',
-    description: 'Apertura de Capital Inicial',
-    date: '2026-07-01 08:00:00'
-  },
-  {
-    id: 't-l1',
-    amount: -1000000,
-    type: 'loan_disbursement',
-    description: 'Desembolso Préstamo Javier Ricardo',
-    date: '2026-06-30 10:30:00',
-    referenceId: 'l1'
-  },
-  {
-    id: 't-l2',
-    amount: -300000,
-    type: 'loan_disbursement',
-    description: 'Desembolso Préstamo Yeison Ricardo',
-    date: '2026-06-27 14:15:00',
-    referenceId: 'l2'
-  },
-  {
-    id: 't-l3',
-    amount: -500000,
-    type: 'loan_disbursement',
-    description: 'Desembolso Préstamo Jhon',
-    date: '2026-07-01 11:00:00',
-    referenceId: 'l3'
-  }
-];
-
 export const storageService = {
   // Inicialización
   initializeData(force: boolean = false) {
+    const defaultBox: CapitalBox = {
+      initialCapital: 0,
+      currentCapital: 0,
+      totalLent: 0,
+      totalRecovered: 0,
+      totalInterestRecovered: 0
+    };
+
     if (force || !localStorage.getItem(CLIENTS_KEY)) {
-      localStorage.setItem(CLIENTS_KEY, JSON.stringify(SEED_CLIENTS));
-      localStorage.setItem(LOANS_KEY, JSON.stringify(SEED_LOANS));
-      localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(getSeedInstallments()));
-      localStorage.setItem(CAPITAL_KEY, JSON.stringify(SEED_CAPITAL));
-      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(SEED_TRANSACTIONS));
+      localStorage.setItem(CLIENTS_KEY, JSON.stringify([]));
+      localStorage.setItem(LOANS_KEY, JSON.stringify([]));
+      localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify([]));
+      localStorage.setItem(CAPITAL_KEY, JSON.stringify(defaultBox));
+      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
     }
   },
 
@@ -424,7 +233,14 @@ export const storageService = {
   getCapitalBox(): CapitalBox {
     this.initializeData();
     const data = localStorage.getItem(CAPITAL_KEY);
-    return data ? JSON.parse(data) : SEED_CAPITAL;
+    const defaultBox: CapitalBox = {
+      initialCapital: 0,
+      currentCapital: 0,
+      totalLent: 0,
+      totalRecovered: 0,
+      totalInterestRecovered: 0
+    };
+    return data ? JSON.parse(data) : defaultBox;
   },
 
   setInitialCapital(amount: number): CapitalBox {

@@ -96,5 +96,5 @@ CREATE POLICY "Permitir acceso público a transacciones" ON transactions FOR ALL
 -- DATOS INICIALES DE CAJA
 -- ==========================================
 INSERT INTO capital_box (id, initial_capital, current_capital, total_lent, total_recovered, total_interest_recovered)
-VALUES ('main_box', 10000000, 8200000, 1800000, 0, 0)
+VALUES ('main_box', 0, 0, 0, 0, 0)
 ON CONFLICT (id) DO NOTHING;

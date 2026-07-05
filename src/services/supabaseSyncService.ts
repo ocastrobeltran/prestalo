@@ -171,17 +171,7 @@ export const supabaseSyncService = {
       const { data: clientsData, error: clientsErr } = await supabase.from('clients').select('*');
       if (clientsErr) throw clientsErr;
 
-      // Si la base de datos está completamente vacía (0 clientes y 0 préstamos),
-      // enviamos los datos locales (seed) a Supabase para inicializar la nube.
-      if (!clientsData || clientsData.length === 0) {
-        console.log('Supabase vacío. Empujando datos locales iniciales (Seed/Local)...');
-        await this.pushAllLocalToRemote();
-        this.setStatus('synced');
-        if (onComplete) onComplete();
-        return true;
-      }
-
-      // Si hay datos en Supabase, los descargamos todos
+      // Descargar el resto de tablas de Supabase para mantener sincronizado
       const { data: loansData, error: loansErr } = await supabase.from('loans').select('*');
       if (loansErr) throw loansErr;
 

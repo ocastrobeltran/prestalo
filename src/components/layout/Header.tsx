@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onDataRefresh }) => {
   };
 
   const handleResetData = () => {
-    if (window.confirm('¿Está seguro de restablecer los datos de prueba? Se perderán todos sus cambios.')) {
+    if (window.confirm('¿Está seguro de limpiar todos los datos locales de este navegador? Se perderán todos sus cambios no guardados.')) {
       storageService.initializeData(true);
       onDataRefresh();
       setShowBackupMenu(false);
@@ -212,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onDataRefresh }) => {
               <div className="dropdown-divider"></div>
               <button onClick={handleResetData} className="dropdown-item danger">
                 <RefreshCw size={14} className="spin-on-hover" />
-                Cargar Datos Semilla
+                Limpiar Datos Locales
               </button>
             </div>
           )}
