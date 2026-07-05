@@ -135,7 +135,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onDataRefresh }) => {
   return (
     <header className="header no-print">
       <div className="header-left">
-        <h1 className="header-title">{getTitle()}</h1>
+        <div className="header-brand-container">
+          <img src="/logo.png" alt="Préstalo Logo" className="header-brand-logo" />
+          <h1 className="header-title">{getTitle()}</h1>
+        </div>
       </div>
       
       <div className="header-right">
@@ -232,6 +235,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onDataRefresh }) => {
           top: 0;
           z-index: 90;
           transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .header-brand-container {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .header-brand-logo {
+          height: 28px;
+          width: 28px;
+          object-fit: contain;
+          border-radius: 8px;
+          background-color: var(--bg-card);
+          border: 1px solid var(--border-color);
+          box-shadow: var(--shadow-sm);
         }
 
         .header-title {

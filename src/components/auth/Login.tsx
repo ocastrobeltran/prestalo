@@ -154,8 +154,8 @@ export const Login: React.FC = () => {
 
       <div className="login-card animate-fade-in">
         <div className="login-header">
-          <div className="login-logo-container">
-            <Lock className="login-logo-icon" size={28} />
+          <div className="login-logo-wrapper">
+            <img src="/logo.png" alt="Préstalo Logo" className="login-logo-img" />
           </div>
           <h1 className="login-title">Préstalo</h1>
           <p className="login-subtitle">Gestión de Cobros y Préstamos</p>
@@ -277,17 +277,30 @@ export const Login: React.FC = () => {
           margin-bottom: 28px;
         }
 
-        .login-logo-container {
-          width: 56px;
-          height: 56px;
-          background: linear-gradient(135deg, var(--primary), #3b82f6);
-          border-radius: 14px;
+        .login-logo-wrapper {
+          width: 72px;
+          height: 72px;
+          margin: 0 auto 16px auto;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 16px auto;
-          color: white;
-          box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 18px;
+          padding: 6px;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        html:not(.dark) .login-logo-wrapper {
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .login-logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          border-radius: 12px;
         }
 
         .login-title {
