@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { Lock, Mail, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -8,6 +8,111 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Parámetros de la simulación "Emergent Flow"
+    const particleCount = 70;
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      history: Array<{ x: number; y: number }>;
+      color: string;
+      speed: number;
+      angleOffset: number;
+    }> = [];
+
+    const colors = [
+      'rgba(6, 182, 212, 0.15)',  // Cyan
+      'rgba(13, 148, 136, 0.15)',  // Teal
+      'rgba(16, 185, 129, 0.15)',  // Emerald
+      'rgba(14, 165, 233, 0.15)'   // Sky Blue
+    ];
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: 0,
+        vy: 0,
+        history: [],
+        color: colors[Math.floor(Math.random() * colors.length)],
+        speed: 0.3 + Math.random() * 0.7,
+        angleOffset: Math.random() * Math.PI * 2
+      });
+    }
+
+    let time = 0;
+
+    const render = () => {
+      ctx.fillStyle = document.documentElement.classList.contains('dark')
+        ? 'rgba(8, 12, 20, 0.08)' 
+        : 'rgba(248, 250, 252, 0.08)';
+      ctx.fillRect(0, 0, width, height);
+
+      time += 0.001;
+
+      particles.forEach((p) => {
+        const angle = Math.sin(p.x * 0.002 + time) * Math.cos(p.y * 0.002 + time) * Math.PI * 2 + p.angleOffset;
+        p.vx = Math.cos(angle) * p.speed;
+        p.vy = Math.sin(angle) * p.speed;
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        p.history.push({ x: p.x, y: p.y });
+        if (p.history.length > 20) {
+          p.history.shift();
+        }
+
+        if (p.history.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(p.history[0].x, p.history[0].y);
+          for (let i = 1; i < p.history.length; i++) {
+            ctx.lineTo(p.history[i].x, p.history[i].y);
+          }
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.stroke();
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +131,6 @@ export const Login: React.FC = () => {
       });
 
       if (error) {
-        // Traducir algunos errores comunes
         if (error.message.includes('Invalid login credentials')) {
           throw new Error('Credenciales incorrectas. Verifica tu correo y contraseña.');
         } else if (error.message.includes('Email not confirmed')) {
@@ -45,9 +149,8 @@ export const Login: React.FC = () => {
 
   return (
     <div className="login-container">
-      {/* Elementos decorativos de fondo (Orbes brillantes) */}
-      <div className="bg-orb orb-1"></div>
-      <div className="bg-orb orb-2"></div>
+      {/* Fondo Canvas Generativo Algorítmico */}
+      <canvas ref={canvasRef} className="login-canvas-backdrop" />
 
       <div className="login-card animate-fade-in">
         <div className="login-header">
@@ -138,28 +241,15 @@ export const Login: React.FC = () => {
           padding: 20px;
         }
 
-        /* Orbes de fondo */
-        .bg-orb {
+        /* Fondo Canvas Generativo Algorítmico */
+        .login-canvas-backdrop {
           position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.15;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
           z-index: 1;
           pointer-events: none;
-        }
-        .orb-1 {
-          width: 300px;
-          height: 300px;
-          background: var(--primary);
-          top: 10%;
-          left: -5%;
-        }
-        .orb-2 {
-          width: 350px;
-          height: 350px;
-          background: #3b82f6;
-          bottom: 10%;
-          right: -5%;
         }
 
         .login-card {
@@ -180,9 +270,6 @@ export const Login: React.FC = () => {
           background: rgba(255, 255, 255, 0.7);
           border: 1px solid rgba(0, 0, 0, 0.06);
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-        }
-        html:not(.dark) .bg-orb {
-          opacity: 0.08;
         }
 
         .login-header {

@@ -1,10 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Colors */
-  --primary-rgb: 14, 165, 233; /* #0ea5e9 */
+  /* Colors - Tech Innovation Theme (Neon Cyan & Emerald Accent) */
+  --primary-rgb: 6, 182, 212; /* #06b6d4 (Cyan) */
   --primary: rgb(var(--primary-rgb));
-  --primary-hover: #0284c7;
+  --primary-hover: #0891b2;
   
   --success-rgb: 16, 185, 129; /* #10b981 */
   --success: rgb(var(--success-rgb));
@@ -12,21 +12,21 @@
   --warning-rgb: 245, 158, 11; /* #f59e0b */
   --warning: rgb(var(--warning-rgb));
   
-  --danger-rgb: 239, 68, 68; /* #ef4444 */
+  --danger-rgb: 244, 63, 94; /* #f43f5e (Rose-500) */
   --danger: rgb(var(--danger-rgb));
   
   /* Light Theme Variables */
-  --bg-app: #f1f5f9;
+  --bg-app: #f8fafc;
   --bg-container: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #f8fafc;
+  --bg-input: #f1f5f9;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
   --border-color: #e2e8f0;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
   --glass-bg: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.5);
   
@@ -35,21 +35,21 @@
   --font-heading: 'Outfit', sans-serif;
 }
 
-/* Dark Theme Variables */
+/* Dark Theme Variables - Midnight Galaxy */
 .dark {
-  --bg-app: #0b0f19;
-  --bg-container: #111827;
-  --bg-card: #1f2937;
-  --bg-input: #374151;
-  --text-primary: #f9fafb;
-  --text-secondary: #d1d5db;
-  --text-tertiary: #9ca3af;
-  --border-color: #374151;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
-  --glass-bg: rgba(17, 24, 39, 0.8);
-  --glass-border: rgba(31, 41, 55, 0.5);
+  --bg-app: #080c14; /* Cosmic Navy deep */
+  --bg-container: #0f1524; /* Frosted card navy */
+  --bg-card: #151e33; /* Lighter card navy */
+  --bg-input: #1b2640;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --border-color: #233256;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 30px -3px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(15, 21, 36, 0.8);
+  --glass-border: rgba(35, 50, 86, 0.4);
 }
 
 * {
