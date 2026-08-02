@@ -224,13 +224,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onDataRefresh }) => {
 
       <style>{`
         .header {
-          height: 60px;
+          height: calc(60px + env(safe-area-inset-top));
+          padding-top: env(safe-area-inset-top);
+          padding-left: 16px;
+          padding-right: 16px;
           background-color: var(--bg-container);
           border-bottom: 1px solid var(--border-color);
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0 16px;
           position: sticky;
           top: 0;
           z-index: 90;

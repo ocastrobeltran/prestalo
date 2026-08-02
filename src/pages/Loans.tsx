@@ -28,11 +28,6 @@ export const Loans: React.FC<LoansProps> = ({
     loan.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const activeLoansCount = loans.filter(l => l.status === 'active').length;
-  const totalCupo = 10;
-  const cupoPercentage = (activeLoansCount / totalCupo) * 100;
-
-  // Obtener cuotas pagadas vs totales de un préstamo
   const getLoanInstallmentsProgress = (loanId: string) => {
     const loanInstallments = installments.filter(i => i.loanId === loanId);
     const total = loanInstallments.length;
@@ -74,21 +69,6 @@ export const Loans: React.FC<LoansProps> = ({
 
   return (
     <div className="loans-container animate-fade-in">
-      {/* Cupo Card (de acuerdo a la captura 4) */}
-      <div className="cupo-card shadow-sm">
-        <div className="cupo-header">
-          <div className="cupo-title-wrap">
-            <span className="cupo-title">Préstamos Activos</span>
-            <span className="cupo-status">DISPONIBLE</span>
-          </div>
-          <span className="cupo-fraction">{activeLoansCount}/{totalCupo}</span>
-        </div>
-        <ProgressBar progress={cupoPercentage} color="var(--success)" />
-        <div className="cupo-footer">
-          <span>{cupoPercentage.toFixed(0)}% Utilizado</span>
-        </div>
-      </div>
-
       {/* Buscador y Botón de Añadir */}
       <div className="search-bar-wrap">
         <div className="search-input-container">
@@ -186,55 +166,6 @@ export const Loans: React.FC<LoansProps> = ({
           display: flex;
           flex-direction: column;
           gap: 16px;
-        }
-
-        .cupo-card {
-          background-color: var(--bg-card);
-          border: 1px solid var(--border-color);
-          border-radius: 16px;
-          padding: 16px;
-        }
-
-        .cupo-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .cupo-title-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .cupo-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .cupo-status {
-          font-size: 10px;
-          font-weight: 800;
-          color: var(--success);
-          background-color: rgba(16, 185, 129, 0.1);
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-
-        .cupo-fraction {
-          font-family: var(--font-heading);
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--success);
-        }
-
-        .cupo-footer {
-          margin-top: 8px;
-          font-size: 11px;
-          color: var(--text-tertiary);
-          text-align: right;
         }
 
         .search-bar-wrap {

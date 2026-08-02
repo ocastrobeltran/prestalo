@@ -42,7 +42,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           bottom: 0;
           left: 0;
           right: 0;
-          height: 68px;
+          height: calc(64px + env(safe-area-inset-bottom));
+          padding-bottom: env(safe-area-inset-bottom);
           background-color: var(--glass-bg);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
@@ -50,7 +51,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           display: flex;
           justify-content: space-around;
           align-items: center;
-          padding-bottom: env(safe-area-inset-bottom);
           z-index: 100;
           box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
           transition: background-color 0.3s, border-color 0.3s;

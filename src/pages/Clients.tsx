@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { Client, Loan } from '../types';
 import { formatCurrency } from '../services/loanCalculator';
 import { Search, UserPlus, Phone, MapPin, Edit2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { ProgressBar } from '../components/common/ProgressBar';
 
 interface ClientsProps {
   clients: Client[];
@@ -32,11 +31,6 @@ export const Clients: React.FC<ClientsProps> = ({
     );
   });
 
-  const activeClientsCount = clients.filter(c => c.status === 'active').length;
-  // Supongamos un límite ficticio de 10 clientes para concordar exactamente con la captura "6/10 DISPONIBLE"
-  const totalCupo = 10;
-  const cupoPercentage = (activeClientsCount / totalCupo) * 100;
-
   const toggleExpandClient = (clientId: string) => {
     if (expandedClientId === clientId) {
       setExpandedClientId(null);
@@ -58,20 +52,6 @@ export const Clients: React.FC<ClientsProps> = ({
 
   return (
     <div className="clients-container animate-fade-in">
-      {/* Cupo Card (de acuerdo a la captura 3) */}
-      <div className="cupo-card shadow-sm">
-        <div className="cupo-header">
-          <div className="cupo-title-wrap">
-            <span className="cupo-title">Clientes</span>
-            <span className="cupo-status">DISPONIBLE</span>
-          </div>
-          <span className="cupo-fraction">{activeClientsCount}/{totalCupo}</span>
-        </div>
-        <ProgressBar progress={cupoPercentage} color="var(--success)" />
-        <div className="cupo-footer">
-          <span>{cupoPercentage.toFixed(0)}% Utilizado</span>
-        </div>
-      </div>
 
       {/* Buscador y Botón de Añadir */}
       <div className="search-bar-wrap">
@@ -207,55 +187,6 @@ export const Clients: React.FC<ClientsProps> = ({
           display: flex;
           flex-direction: column;
           gap: 16px;
-        }
-
-        .cupo-card {
-          background-color: var(--bg-card);
-          border: 1px solid var(--border-color);
-          border-radius: 16px;
-          padding: 16px;
-        }
-
-        .cupo-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .cupo-title-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .cupo-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .cupo-status {
-          font-size: 10px;
-          font-weight: 800;
-          color: var(--success);
-          background-color: rgba(16, 185, 129, 0.1);
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-
-        .cupo-fraction {
-          font-family: var(--font-heading);
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--success);
-        }
-
-        .cupo-footer {
-          margin-top: 8px;
-          font-size: 11px;
-          color: var(--text-tertiary);
-          text-align: right;
         }
 
         .search-bar-wrap {
