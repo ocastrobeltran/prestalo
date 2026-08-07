@@ -17,7 +17,7 @@ interface ReportsProps {
   transactions: CapitalTransaction[];
 }
 
-type PeriodMode = 'hoy' | 'semana' | 'mes';
+type PeriodMode = 'hoy' | 'semana' | 'mes' | 'todos';
 
 export const Reports: React.FC<ReportsProps> = ({
   clients,
@@ -54,6 +54,9 @@ export const Reports: React.FC<ReportsProps> = ({
       const currentYearMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
       filteredInstallments = installments.filter(i => i.dueDate.startsWith(currentYearMonth));
       filteredTransactions = transactions.filter(t => t.date.startsWith(currentYearMonth));
+    } else if (period === 'todos') {
+      filteredInstallments = installments;
+      filteredTransactions = transactions;
     }
 
     return { filteredInstallments, filteredTransactions };
@@ -61,20 +64,35 @@ export const Reports: React.FC<ReportsProps> = ({
 
   const { filteredInstallments, filteredTransactions } = getFilteredData();
 
-  // Calcular métricas
-  const capitalPrestadoPeriodo = filteredTransactions
-    .filter(t => t.type === 'loan_disbursement')
-    .reduce((acc, curr) => acc + Math.abs(curr.amount), 0);
+  // Calcular capital prestado en el período o total
+  const todayStr = new Date().toISOString().split('T')[0];
+  const currentYearMonth = new Date().toISOString().substring(0, 7);
+
+  const getCapitalPrestado = () => {
+    if (period === 'todos') {
+      return loans.reduce((acc, curr) => acc + curr.capital, 0);
+    } else if (period === 'hoy') {
+      return loans.filter(l => l.startDate === todayStr).reduce((acc, curr) => acc + curr.capital, 0);
+    } else if (period === 'semana') {
+      const today = new Date();
+      const first = today.getDate() - today.getDay();
+      const firstDate = new Date(today.setDate(first)).toISOString().split('T')[0];
+      const lastDate = new Date(today.setDate(first + 6)).toISOString().split('T')[0];
+      return loans.filter(l => l.startDate >= firstDate && l.startDate <= lastDate).reduce((acc, curr) => acc + curr.capital, 0);
+    } else if (period === 'mes') {
+      return loans.filter(l => l.startDate.startsWith(currentYearMonth)).reduce((acc, curr) => acc + curr.capital, 0);
+    }
+    return 0;
+  };
+
+  const capitalPrestadoPeriodo = getCapitalPrestado();
+  const totalCapitalPrestadoGlobal = loans.reduce((acc, curr) => acc + curr.capital, 0);
 
   const totalCobradoPeriodo = filteredTransactions
     .filter(t => t.type === 'installment_payment')
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   // Desglosar capital vs intereses cobrados en el período
-  // Sumamos los capitalAmount y interestAmount correspondientes a las cuotas pagadas en este período
-  const todayStr = new Date().toISOString().split('T')[0];
-  const currentYearMonth = new Date().toISOString().substring(0, 7);
-  
   let paidInstallmentsInPeriod = installments.filter(i => i.status === 'paid');
   if (period === 'hoy') {
     paidInstallmentsInPeriod = paidInstallmentsInPeriod.filter(i => i.paidDate === todayStr);
@@ -174,11 +192,18 @@ export const Reports: React.FC<ReportsProps> = ({
           >
             Mes
           </button>
+          <button 
+            className={`period-btn ${period === 'todos' ? 'active' : ''}`}
+            onClick={() => setPeriod('todos')}
+          >
+            Todo (Histórico)
+          </button>
         </div>
         <div className="period-dates">
           {period === 'hoy' && <span>{todayStr}</span>}
           {period === 'semana' && <span>Rango semanal actual</span>}
           {period === 'mes' && <span>Mes: {monthNames[new Date().getMonth()]} {new Date().getFullYear()}</span>}
+          {period === 'todos' && <span>Acumulado Histórico Completo</span>}
         </div>
       </div>
 
@@ -194,8 +219,13 @@ export const Reports: React.FC<ReportsProps> = ({
 
         <div className="metrics-box-grid">
           <div className="metric-box shadow-sm">
-            <span className="lbl">Capital Prestado</span>
+            <span className="lbl">{period === 'todos' ? 'Capital Prestado (Total)' : 'Capital Prestado (Período)'}</span>
             <span className="val">{formatCurrency(capitalPrestadoPeriodo)}</span>
+            {period !== 'todos' && (
+              <span className="subtext">
+                Histórico Acumulado: {formatCurrency(totalCapitalPrestadoGlobal)}
+              </span>
+            )}
           </div>
 
           <div className="metric-box shadow-sm">
