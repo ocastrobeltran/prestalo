@@ -1,6 +1,6 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
 import { generateInstallments } from './loanCalculator';
-import { supabaseSyncService } from './supabaseSyncService';
+import { supabaseSyncService, computeCapitalBox } from './supabaseSyncService';
 
 const CLIENTS_KEY = 'prestalo_clients';
 const LOANS_KEY = 'prestalo_loans';
@@ -119,12 +119,6 @@ export const storageService = {
     allInstallments.push(...installments);
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(allInstallments));
     
-    // Actualizar caja de capital (Desembolso)
-    const capitalBox = this.getCapitalBox();
-    capitalBox.currentCapital -= loanData.capital;
-    capitalBox.totalLent += loanData.capital;
-    localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
-    
     // Registrar transacción
     const tx = this.addTransaction({
       amount: -loanData.capital,
@@ -132,6 +126,9 @@ export const storageService = {
       description: `Desembolso préstamo a ${loanData.clientName}`,
       referenceId: loanId
     });
+
+    // Reconciliar caja de capital
+    const capitalBox = this.reconcileCapitalBox();
     
     supabaseSyncService.syncUpLoanCreation(newLoan, installments, tx, capitalBox);
     return { loan: newLoan, installments };
@@ -149,21 +146,16 @@ export const storageService = {
     const updatedInstallments = this.getInstallments().filter(i => i.loanId !== id);
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(updatedInstallments));
     
-    // Revertir caja de capital si el préstamo estaba activo
+    // Registrar transacción de reverso y reconciliar caja
     let tx: CapitalTransaction | undefined;
-    let capitalBox: CapitalBox | undefined;
     if (loan.status === 'active') {
-      capitalBox = this.getCapitalBox();
-      capitalBox.currentCapital += loan.capital;
-      capitalBox.totalLent -= loan.capital;
-      localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
-      
       tx = this.addTransaction({
         amount: loan.capital,
         type: 'expense',
         description: `Eliminación de Préstamo Activo ID: ${loan.id}`
       });
     }
+    const capitalBox = this.reconcileCapitalBox();
     supabaseSyncService.deleteRemoteLoan(id, tx, capitalBox);
   },
 
@@ -187,14 +179,6 @@ export const storageService = {
     installment.paidDate = new Date().toISOString().split('T')[0];
     installments[idx] = installment;
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
-    
-    // Registrar entrada de capital e interés en la caja
-    const capitalBox = this.getCapitalBox();
-    capitalBox.currentCapital += installment.amount;
-    capitalBox.totalLent -= installment.capitalAmount;
-    capitalBox.totalRecovered += installment.capitalAmount;
-    capitalBox.totalInterestRecovered += installment.interestAmount;
-    localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
     
     // Registrar transacción
     const tx = this.addTransaction({
@@ -221,6 +205,8 @@ export const storageService = {
     } else {
       updatedLoan = loans.find(l => l.id === loanId);
     }
+
+    const capitalBox = this.reconcileCapitalBox();
     
     if (updatedLoan) {
       supabaseSyncService.syncUpPayment(installment, updatedLoan, tx, capitalBox);
@@ -230,6 +216,17 @@ export const storageService = {
   },
 
   // CAPITAL BOX
+  reconcileCapitalBox(initialCapOverride?: number): CapitalBox {
+    const rawBox = this.getCapitalBox();
+    const initialCap = initialCapOverride !== undefined ? initialCapOverride : rawBox.initialCapital;
+    const loans = this.getLoans();
+    const installments = this.getInstallments();
+    const transactions = this.getTransactions();
+    const reconciledBox = computeCapitalBox(initialCap, loans, installments, transactions);
+    localStorage.setItem(CAPITAL_KEY, JSON.stringify(reconciledBox));
+    return reconciledBox;
+  },
+
   getCapitalBox(): CapitalBox {
     this.initializeData();
     const data = localStorage.getItem(CAPITAL_KEY);
@@ -244,13 +241,10 @@ export const storageService = {
   },
 
   setInitialCapital(amount: number): CapitalBox {
-    const capitalBox = this.getCapitalBox();
-    const difference = amount - capitalBox.initialCapital;
+    const currentBox = this.getCapitalBox();
+    const difference = amount - currentBox.initialCapital;
     
-    capitalBox.initialCapital = amount;
-    capitalBox.currentCapital += difference;
-    
-    localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
+    const capitalBox = this.reconcileCapitalBox(amount);
     
     const tx = this.addTransaction({
       amount: difference,

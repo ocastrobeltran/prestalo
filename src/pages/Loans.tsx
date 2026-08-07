@@ -27,7 +27,11 @@ export const Loans: React.FC<LoansProps> = ({
     loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     loan.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const totalLoansCount = loans.length;
+  const activeLoansCount = loans.filter(l => l.status === 'active').length;
+  const completedLoansCount = loans.filter(l => l.status === 'completed').length;
 
+  // Obtener cuotas pagadas vs totales de un préstamo
   const getLoanInstallmentsProgress = (loanId: string) => {
     const loanInstallments = installments.filter(i => i.loanId === loanId);
     const total = loanInstallments.length;
@@ -69,6 +73,20 @@ export const Loans: React.FC<LoansProps> = ({
 
   return (
     <div className="loans-container animate-fade-in">
+      {/* Tarjeta de Resumen de Préstamos (sin límites artificiales) */}
+      <div className="cupo-card shadow-sm">
+        <div className="cupo-header">
+          <div className="cupo-title-wrap">
+            <span className="cupo-title">Préstamos Registrados</span>
+            <span className="cupo-status">ILIMITADO</span>
+          </div>
+          <span className="cupo-fraction" style={{ fontSize: '20px', fontWeight: 800 }}>{totalLoansCount}</span>
+        </div>
+        <div className="cupo-footer" style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span>Activos: <strong style={{ color: 'var(--success)' }}>{activeLoansCount}</strong></span>
+          {completedLoansCount > 0 && <span>Completados: <strong style={{ color: 'var(--primary)' }}>{completedLoansCount}</strong></span>}
+        </div>
+      </div>
       {/* Buscador y Botón de Añadir */}
       <div className="search-bar-wrap">
         <div className="search-input-container">

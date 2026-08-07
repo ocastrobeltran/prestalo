@@ -31,6 +31,10 @@ export const Clients: React.FC<ClientsProps> = ({
     );
   });
 
+  const totalClientsCount = clients.length;
+  const activeClientsCount = clients.filter(c => c.status === 'active').length;
+  const inactiveClientsCount = totalClientsCount - activeClientsCount;
+
   const toggleExpandClient = (clientId: string) => {
     if (expandedClientId === clientId) {
       setExpandedClientId(null);
@@ -52,6 +56,20 @@ export const Clients: React.FC<ClientsProps> = ({
 
   return (
     <div className="clients-container animate-fade-in">
+      {/* Tarjeta de Resumen de Clientes (sin límites artificiales) */}
+      <div className="cupo-card shadow-sm">
+        <div className="cupo-header">
+          <div className="cupo-title-wrap">
+            <span className="cupo-title">Total Clientes Registrados</span>
+            <span className="cupo-status">ILIMITADO</span>
+          </div>
+          <span className="cupo-fraction" style={{ fontSize: '20px', fontWeight: 800 }}>{totalClientsCount}</span>
+        </div>
+        <div className="cupo-footer" style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span>Activos: <strong style={{ color: 'var(--success)' }}>{activeClientsCount}</strong></span>
+          {inactiveClientsCount > 0 && <span>Inactivos: <strong>{inactiveClientsCount}</strong></span>}
+        </div>
+      </div>
 
       {/* Buscador y Botón de Añadir */}
       <div className="search-bar-wrap">

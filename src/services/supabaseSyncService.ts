@@ -5,7 +5,7 @@ import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '
 const CLIENTS_KEY = 'prestalo_clients';
 const LOANS_KEY = 'prestalo_loans';
 const INSTALLMENTS_KEY = 'prestalo_installments';
-const CAPITAL_KEY = 'prestalo_capital_box';
+const CAPITAL_KEY = 'prestalo_capital';
 const TRANSACTIONS_KEY = 'prestalo_transactions';
 
 const getLocal = <T>(key: string, fallback: T): T => {
@@ -13,7 +13,40 @@ const getLocal = <T>(key: string, fallback: T): T => {
   return d ? JSON.parse(d) : fallback;
 };
 
-const defaultBox: CapitalBox = { initialCapital: 10000000, currentCapital: 8200000, totalLent: 1800000, totalRecovered: 0, totalInterestRecovered: 0 };
+const defaultBox: CapitalBox = { initialCapital: 0, currentCapital: 0, totalLent: 0, totalRecovered: 0, totalInterestRecovered: 0 };
+
+export const computeCapitalBox = (
+  initialCapital: number,
+  loans: Loan[],
+  installments: Installment[],
+  transactions: CapitalTransaction[] = []
+): CapitalBox => {
+  const pendingInstallments = installments.filter(i => i.status !== 'paid');
+  const totalLent = pendingInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
+
+  const paidInstallments = installments.filter(i => i.status === 'paid');
+  const totalRecovered = paidInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
+  const totalInterestRecovered = paidInstallments.reduce((acc, curr) => acc + curr.interestAmount, 0);
+  const totalPaidAmount = paidInstallments.reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalDisbursed = loans.reduce((acc, curr) => acc + curr.capital, 0);
+
+  const manualAdjustments = transactions.reduce((acc, curr) => {
+    if (curr.type === 'income') return acc + curr.amount;
+    if (curr.type === 'expense') return acc - Math.abs(curr.amount);
+    return acc;
+  }, 0);
+
+  const currentCapital = initialCapital - totalDisbursed + totalPaidAmount + manualAdjustments;
+
+  return {
+    initialCapital,
+    currentCapital,
+    totalLent,
+    totalRecovered,
+    totalInterestRecovered
+  };
+};
 
 // Mappers TS <-> DB
 const toDbClient = (c: Client) => ({
@@ -184,18 +217,24 @@ export const supabaseSyncService = {
       const { data: txData, error: txErr } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (txErr) throw txErr;
 
-      // Mapear y guardar en localStorage
+      // Mapear datos descargados
       const clients = (clientsData || []).map(fromDbClient);
       const loans = (loansData || []).map(fromDbLoan);
       const installments = (instData || []).map(fromDbInstallment);
-      const capitalBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>(CAPITAL_KEY, defaultBox);
       const transactions = (txData || []).map(fromDbTransaction);
+
+      const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>(CAPITAL_KEY, defaultBox);
+      // Reconciliar dinámicamente la caja de capital para asegurar coherencia matemática
+      const capitalBox = computeCapitalBox(rawBox.initialCapital || 0, loans, installments, transactions);
 
       localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
       localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
       localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
       localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
       localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+
+      // Asegurar que la caja reconciliada esté guardada en Supabase
+      supabase.from('capital_box').upsert(toDbCapitalBox(capitalBox)).then();
 
       this.setStatus('synced');
       window.dispatchEvent(new Event('prestalo_sync_updated'));
