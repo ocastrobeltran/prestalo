@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
-import type { Client, Loan } from '../types';
+import type { Client, Loan, Installment } from '../types';
 import { formatCurrency } from '../services/loanCalculator';
-import { Search, UserPlus, Phone, MapPin, Edit2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, UserPlus, Phone, MapPin, Edit2, Trash2, ChevronDown, ChevronUp, DollarSign, CheckCircle2 } from 'lucide-react';
 
 interface ClientsProps {
   clients: Client[];
   loans: Loan[];
+  installments: Installment[];
   openNewClientModal: () => void;
   onEditClient: (client: Client) => void;
   onDeleteClient: (id: string) => void;
+  onOpenPaymentModal: (installment: Installment) => void;
 }
 
 export const Clients: React.FC<ClientsProps> = ({
   clients,
   loans,
+  installments,
   openNewClientModal,
   onEditClient,
-  onDeleteClient
+  onDeleteClient,
+  onOpenPaymentModal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
@@ -163,32 +167,66 @@ export const Clients: React.FC<ClientsProps> = ({
                         <p className="no-loans-text">Este cliente aún no tiene préstamos registrados.</p>
                       ) : (
                         <div className="client-loans-list">
-                          {clientLoans.map((loan) => (
-                            <div key={loan.id} className="client-loan-item">
-                              <div className="loan-item-header">
-                                <span className={`loan-status-dot ${loan.status}`}></span>
-                                <span className="loan-item-id font-semibold">ID: {loan.id}</span>
-                                <span className={`loan-status-text ${loan.status}`}>
-                                  {loan.status === 'active' ? 'Activo' : 
-                                   loan.status === 'completed' ? 'Pagado' : 'Mora'}
-                                </span>
+                          {clientLoans.map((loan) => {
+                            const loanInsts = installments.filter(i => i.loanId === loan.id);
+                            const pendingInsts = loanInsts.filter(i => i.status !== 'paid');
+
+                            return (
+                              <div key={loan.id} className="client-loan-item">
+                                <div className="loan-item-header">
+                                  <span className={`loan-status-dot ${loan.status}`}></span>
+                                  <span className="loan-item-id font-semibold">ID: {loan.id}</span>
+                                  <span className={`loan-status-text ${loan.status}`}>
+                                    {loan.status === 'active' ? 'Activo' : 
+                                     loan.status === 'completed' ? 'Pagado' : 'Mora'}
+                                  </span>
+                                </div>
+                                <div className="loan-item-details">
+                                  <div className="detail-col">
+                                    <span className="detail-lbl">Prestado:</span>
+                                    <span className="detail-val">{formatCurrency(loan.capital)}</span>
+                                  </div>
+                                  <div className="detail-col">
+                                    <span className="detail-lbl">Total:</span>
+                                    <span className="detail-val">{formatCurrency(loan.totalToPay)}</span>
+                                  </div>
+                                  <div className="detail-col">
+                                    <span className="detail-lbl">Frecuencia:</span>
+                                    <span className="detail-val capitalise">{loan.paymentFrequency}</span>
+                                  </div>
+                                </div>
+
+                                {/* Desglose de Cuotas y Botón de Abono */}
+                                <div className="client-installments-section">
+                                  <div className="inst-section-title font-semibold">
+                                    Cuotas ({loanInsts.length - pendingInsts.length}/{loanInsts.length} pagadas)
+                                  </div>
+                                  <div className="client-inst-grid">
+                                    {loanInsts.map(inst => (
+                                      <div key={inst.id} className={`inst-mini-card ${inst.status}`}>
+                                        <div className="inst-mini-info">
+                                          <span className="inst-num">Cuota #{inst.number}</span>
+                                          <span className="inst-date">{inst.dueDate}</span>
+                                          <span className="inst-amount font-bold">{formatCurrency(inst.amount)}</span>
+                                        </div>
+                                        {inst.status === 'paid' ? (
+                                          <span className="inst-paid-badge"><CheckCircle2 size={12} /> Pagada</span>
+                                        ) : (
+                                          <button 
+                                            className="inst-pay-btn"
+                                            onClick={() => onOpenPaymentModal(inst)}
+                                          >
+                                            <DollarSign size={13} />
+                                            Abonar
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="loan-item-details">
-                                <div className="detail-col">
-                                  <span className="detail-lbl">Prestado:</span>
-                                  <span className="detail-val">{formatCurrency(loan.capital)}</span>
-                                </div>
-                                <div className="detail-col">
-                                  <span className="detail-lbl">Total:</span>
-                                  <span className="detail-val">{formatCurrency(loan.totalToPay)}</span>
-                                </div>
-                                <div className="detail-col">
-                                  <span className="detail-lbl">Frecuencia:</span>
-                                  <span className="detail-val capitalise">{loan.paymentFrequency}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -447,12 +485,14 @@ export const Clients: React.FC<ClientsProps> = ({
         .loan-item-details {
           display: flex;
           justify-content: space-between;
+          background-color: var(--bg-app);
+          padding: 8px;
+          border-radius: 6px;
         }
 
         .detail-col {
           display: flex;
           flex-direction: column;
-          gap: 2px;
         }
 
         .detail-lbl {
@@ -461,13 +501,99 @@ export const Clients: React.FC<ClientsProps> = ({
         }
 
         .detail-val {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
-          color: var(--text-secondary);
+          color: var(--text-primary);
         }
 
         .capitalise {
           text-transform: capitalize;
+        }
+
+        .client-installments-section {
+          margin-top: 10px;
+          border-top: 1px dashed var(--border-color);
+          padding-top: 8px;
+        }
+
+        .inst-section-title {
+          font-size: 11px;
+          color: var(--text-secondary);
+          margin-bottom: 6px;
+        }
+
+        .client-inst-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 6px;
+        }
+
+        .inst-mini-card {
+          background-color: var(--bg-app);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 6px 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .inst-mini-card.paid {
+          opacity: 0.75;
+          border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .inst-mini-info {
+          display: flex;
+          flex-direction: column;
+          font-size: 11px;
+        }
+
+        .inst-num {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .inst-date {
+          font-size: 10px;
+          color: var(--text-tertiary);
+        }
+
+        .inst-amount {
+          color: var(--primary);
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .inst-pay-btn {
+          margin-top: 4px;
+          padding: 4px 6px;
+          font-size: 11px;
+          font-weight: 700;
+          background-color: var(--success);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          transition: background-color 0.2s;
+        }
+
+        .inst-pay-btn:hover {
+          background-color: #059669;
+        }
+
+        .inst-paid-badge {
+          margin-top: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--success);
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         .empty-state {

@@ -9,6 +9,7 @@ import { Reports } from './pages/Reports';
 import { ClientModal } from './components/clients/ClientModal';
 import { LoanModal } from './components/loans/LoanModal';
 import { LoanReceiptModal } from './components/loans/LoanReceiptModal';
+import { PaymentModal } from './components/loans/PaymentModal';
 import { storageService } from './services/storageService';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
@@ -44,6 +45,9 @@ const App: React.FC = () => {
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [activeLoanForReceipt, setActiveLoanForReceipt] = useState<Loan | null>(null);
+
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [activeInstallmentForPayment, setActiveInstallmentForPayment] = useState<Installment | null>(null);
 
   // Cargar y refrescar datos
   const refreshData = () => {
@@ -148,9 +152,14 @@ const App: React.FC = () => {
     setIsReceiptModalOpen(true);
   };
 
-  // INSTALLMENTS ACTIONS
-  const handlePayInstallment = (installmentId: string) => {
-    storageService.payInstallment(installmentId);
+  // INSTALLMENTS & PAYMENT ACTIONS
+  const openPaymentModal = (installment: Installment) => {
+    setActiveInstallmentForPayment(installment);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = (installmentId: string, amount: number) => {
+    storageService.payInstallment(installmentId, amount);
     refreshData();
   };
 
@@ -203,9 +212,11 @@ const App: React.FC = () => {
           <Clients
             clients={clients}
             loans={loans}
+            installments={installments}
             openNewClientModal={openNewClientModal}
             onEditClient={handleEditClientClick}
             onDeleteClient={handleDeleteClient}
+            onOpenPaymentModal={openPaymentModal}
           />
         );
       case 'prestamos':
@@ -216,6 +227,7 @@ const App: React.FC = () => {
             openNewLoanModal={() => openNewLoanModal()}
             onDeleteLoan={handleDeleteLoan}
             onViewReceipt={handleViewReceipt}
+            onOpenPaymentModal={openPaymentModal}
           />
         );
       case 'calendario':
@@ -223,7 +235,10 @@ const App: React.FC = () => {
           <Calendar
             installments={installments}
             clients={clients}
-            onPayInstallment={handlePayInstallment}
+            onPayInstallment={(id) => {
+              const inst = installments.find(i => i.id === id);
+              if (inst) openPaymentModal(inst);
+            }}
           />
         );
       case 'reportes':
@@ -278,6 +293,13 @@ const App: React.FC = () => {
         onClose={() => setIsReceiptModalOpen(false)}
         loan={activeLoanForReceipt}
         installments={installments}
+      />
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        installment={activeInstallmentForPayment}
+        onConfirmPayment={handleConfirmPayment}
       />
     </>
   );

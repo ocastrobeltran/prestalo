@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Loan, Installment } from '../types';
 import { formatCurrency } from '../services/loanCalculator';
-import { Search, FilePlus, FileText, Trash2 } from 'lucide-react';
+import { Search, FilePlus, FileText, Trash2, ChevronDown, ChevronUp, DollarSign, CheckCircle2 } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { Badge } from '../components/common/Badge';
 
@@ -11,6 +11,7 @@ interface LoansProps {
   openNewLoanModal: () => void;
   onDeleteLoan: (id: string) => void;
   onViewReceipt: (loan: Loan) => void;
+  onOpenPaymentModal: (installment: Installment) => void;
 }
 
 export const Loans: React.FC<LoansProps> = ({
@@ -18,9 +19,15 @@ export const Loans: React.FC<LoansProps> = ({
   installments,
   openNewLoanModal,
   onDeleteLoan,
-  onViewReceipt
+  onViewReceipt,
+  onOpenPaymentModal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
+
+  const toggleExpandLoan = (loanId: string) => {
+    setExpandedLoanId(prev => prev === loanId ? null : loanId);
+  };
 
   // Filtrar préstamos
   const filteredLoans = loans.filter(loan => 
@@ -164,6 +171,10 @@ export const Loans: React.FC<LoansProps> = ({
                 </div>
 
                 <div className="loan-card-actions">
+                  <button className="loan-action-btn cuotas" onClick={() => toggleExpandLoan(loan.id)}>
+                    {expandedLoanId === loan.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {expandedLoanId === loan.id ? 'Ocultar Cuotas' : 'Ver Cuotas / Abonar'}
+                  </button>
                   <button className="loan-action-btn pdf" onClick={() => onViewReceipt(loan)}>
                     <FileText size={14} />
                     PDF
@@ -173,6 +184,37 @@ export const Loans: React.FC<LoansProps> = ({
                     Eliminar
                   </button>
                 </div>
+
+                {/* Desglose de Cuotas desplegable */}
+                {expandedLoanId === loan.id && (
+                  <div className="loan-installments-section animate-scale-in">
+                    <div className="inst-section-title font-semibold">
+                      Desglose de Cuotas ({paid}/{total} pagadas)
+                    </div>
+                    <div className="loans-inst-grid">
+                      {installments.filter(i => i.loanId === loan.id).map(inst => (
+                        <div key={inst.id} className={`inst-mini-card ${inst.status}`}>
+                          <div className="inst-mini-info">
+                            <span className="inst-num">Cuota #{inst.number}</span>
+                            <span className="inst-date">{inst.dueDate}</span>
+                            <span className="inst-amount font-bold">{formatCurrency(inst.amount)}</span>
+                          </div>
+                          {inst.status === 'paid' ? (
+                            <span className="inst-paid-badge"><CheckCircle2 size={12} /> Pagada</span>
+                          ) : (
+                            <button 
+                              className="inst-pay-btn"
+                              onClick={() => onOpenPaymentModal(inst)}
+                            >
+                              <DollarSign size={13} />
+                              Abonar
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
@@ -347,6 +389,13 @@ export const Loans: React.FC<LoansProps> = ({
           font-weight: 600;
         }
 
+        .loan-action-btn.cuotas {
+          border: 1px solid rgba(14, 165, 233, 0.3);
+          background-color: rgba(14, 165, 233, 0.08);
+          color: var(--primary);
+          flex: 1.5;
+        }
+
         .loan-action-btn.pdf {
           border: 1px solid var(--border-color);
           background-color: var(--bg-card);
@@ -357,6 +406,92 @@ export const Loans: React.FC<LoansProps> = ({
           background-color: rgba(239, 68, 68, 0.08);
           color: var(--danger);
           border: 1px solid rgba(239, 68, 68, 0.15);
+        }
+
+        .loan-installments-section {
+          margin-top: 12px;
+          border-top: 1px dashed var(--border-color);
+          padding-top: 10px;
+        }
+
+        .inst-section-title {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-bottom: 8px;
+        }
+
+        .loans-inst-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 8px;
+        }
+
+        .inst-mini-card {
+          background-color: var(--bg-app);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .inst-mini-card.paid {
+          opacity: 0.75;
+          border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .inst-mini-info {
+          display: flex;
+          flex-direction: column;
+          font-size: 11px;
+        }
+
+        .inst-num {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .inst-date {
+          font-size: 10px;
+          color: var(--text-tertiary);
+        }
+
+        .inst-amount {
+          color: var(--primary);
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .inst-pay-btn {
+          margin-top: 4px;
+          padding: 6px 8px;
+          font-size: 11px;
+          font-weight: 700;
+          background-color: var(--success);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          transition: background-color 0.2s;
+        }
+
+        .inst-pay-btn:hover {
+          background-color: #059669;
+        }
+
+        .inst-paid-badge {
+          margin-top: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--success);
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         .text-right {

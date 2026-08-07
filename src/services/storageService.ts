@@ -166,7 +166,7 @@ export const storageService = {
     return data ? JSON.parse(data) : [];
   },
 
-  payInstallment(installmentId: string): Installment {
+  payInstallment(installmentId: string, customAmount?: number): Installment {
     const installments = this.getInstallments();
     const idx = installments.findIndex(i => i.id === installmentId);
     if (idx === -1) throw new Error('Cuota no encontrada');
@@ -174,17 +174,63 @@ export const storageService = {
     const installment = installments[idx];
     if (installment.status === 'paid') return installment;
     
-    // Actualizar estado
-    installment.status = 'paid';
-    installment.paidDate = new Date().toISOString().split('T')[0];
+    const amountToPay = (customAmount !== undefined && customAmount > 0) ? customAmount : installment.amount;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const actualPaidAmount = amountToPay;
+    
+    if (amountToPay < installment.amount) {
+      // Abono Parcial: calcular proporciones de capital e interés pagados
+      const ratio = amountToPay / installment.amount;
+      const paidCapital = Math.round(installment.capitalAmount * ratio);
+      const paidInterest = amountToPay - paidCapital;
+
+      // Reducir la cuota actual con el saldo que falta por pagar
+      installment.amount -= amountToPay;
+      installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
+      installment.interestAmount = Math.max(0, installment.interestAmount - paidInterest);
+
+      if (installment.amount <= 0) {
+        installment.status = 'paid';
+        installment.paidDate = todayStr;
+      }
+    } else {
+      // Pago Completo o Abono Mayor
+      const originalAmount = installment.amount;
+      installment.status = 'paid';
+      installment.paidDate = todayStr;
+
+      const excess = amountToPay - originalAmount;
+      if (excess > 0) {
+        // Si pagó de más, aplicar el excedente a la siguiente cuota pendiente del mismo préstamo
+        const pendingLoanInstallments = installments.filter(i => i.loanId === installment.loanId && i.status !== 'paid' && i.id !== installment.id);
+        if (pendingLoanInstallments.length > 0) {
+          const nextInstIdx = installments.findIndex(i => i.id === pendingLoanInstallments[0].id);
+          if (nextInstIdx !== -1) {
+            const nextInst = installments[nextInstIdx];
+            if (excess >= nextInst.amount) {
+              nextInst.status = 'paid';
+              nextInst.paidDate = todayStr;
+            } else {
+              const ratio = excess / nextInst.amount;
+              const paidCap = Math.round(nextInst.capitalAmount * ratio);
+              nextInst.amount -= excess;
+              nextInst.capitalAmount = Math.max(0, nextInst.capitalAmount - paidCap);
+              nextInst.interestAmount = Math.max(0, nextInst.amount - nextInst.capitalAmount);
+            }
+            installments[nextInstIdx] = nextInst;
+          }
+        }
+      }
+    }
+
     installments[idx] = installment;
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
     
-    // Registrar transacción
+    // Registrar transacción con el monto abonado exacto
     const tx = this.addTransaction({
-      amount: installment.amount,
+      amount: actualPaidAmount,
       type: 'installment_payment',
-      description: `Pago Cuota #${installment.number} de ${installment.clientName}`,
+      description: `Pago/Abono Cuota #${installment.number} de ${installment.clientName}`,
       referenceId: installment.loanId
     });
     
