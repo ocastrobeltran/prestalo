@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
+import { getPaidBreakdownForInstallment } from './loanCalculator';
 
 // Claves locales sincronizadas con storageService
 const CLIENTS_KEY = 'prestalo_clients';
@@ -21,13 +22,23 @@ export const computeCapitalBox = (
   installments: Installment[],
   transactions: CapitalTransaction[] = []
 ): CapitalBox => {
-  const pendingInstallments = installments.filter(i => i.status !== 'paid');
-  const totalLent = pendingInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
+  const loansMap = new Map<string, Loan>();
+  loans.forEach(l => loansMap.set(l.id, l));
 
-  const paidInstallments = installments.filter(i => i.status === 'paid' || (i.paidAmount ?? 0) > 0);
-  const totalRecovered = paidInstallments.reduce((acc, curr) => acc + (curr.paidCapitalAmount ?? (curr.status === 'paid' ? curr.capitalAmount : 0)), 0);
-  const totalInterestRecovered = paidInstallments.reduce((acc, curr) => acc + (curr.paidInterestAmount ?? (curr.status === 'paid' ? curr.interestAmount : 0)), 0);
-  const totalPaidAmount = paidInstallments.reduce((acc, curr) => acc + (curr.paidAmount ?? (curr.status === 'paid' ? curr.amount : 0)), 0);
+  let totalRecovered = 0;
+  let totalInterestRecovered = 0;
+  let totalPaidAmount = 0;
+
+  installments.forEach(inst => {
+    const loan = loansMap.get(inst.loanId);
+    const { paidCapital, paidInterest, paidTotal } = getPaidBreakdownForInstallment(inst, loan);
+    totalRecovered += paidCapital;
+    totalInterestRecovered += paidInterest;
+    totalPaidAmount += paidTotal;
+  });
+
+  const pendingInstallments = installments.filter(i => i.status !== 'paid' && i.amount > 0);
+  const totalLent = pendingInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
 
   const totalDisbursed = loans.reduce((acc, curr) => acc + curr.capital, 0);
 

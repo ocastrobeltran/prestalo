@@ -20,10 +20,61 @@ export interface FinancialSummary {
 }
 
 /**
+ * Calcula el desglose exacto de capital e interés pagado para una cuota (soporta abonos y sincronización sin columnas extra)
+ */
+export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): { paidCapital: number; paidInterest: number; paidTotal: number } {
+  // 1. Si la cuota ya tiene registrados de forma explícita paidCapitalAmount o paidInterestAmount
+  if ((inst.paidCapitalAmount && inst.paidCapitalAmount > 0) || (inst.paidInterestAmount && inst.paidInterestAmount > 0)) {
+    const paidCap = inst.paidCapitalAmount || 0;
+    const paidInt = inst.paidInterestAmount || 0;
+    const paidTot = inst.paidAmount || (paidCap + paidInt);
+    return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
+  }
+
+  // 2. Si se tiene el paidAmount explícito (abono parcial registrado en la cuota)
+  if (inst.paidAmount && inst.paidAmount > 0) {
+    const ratio = loan && loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
+    const paidCap = Math.round(inst.paidAmount * ratio);
+    const paidInt = inst.paidAmount - paidCap;
+    return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: inst.paidAmount };
+  }
+
+  // 3. Si la cuota está completamente pagada (status === 'paid')
+  if (inst.status === 'paid') {
+    let paidCap = inst.capitalAmount;
+    let paidInt = inst.interestAmount;
+    
+    // Si al pagarse el capitalAmount fue reseteado a 0, recalcular usando las condiciones del préstamo
+    if ((paidCap === 0 && paidInt === 0) && loan && loan.installmentsCount > 0) {
+      paidCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
+      paidInt = Math.round(((loan.capital * loan.interestRate / 100) / loan.installmentsCount) * 100) / 100;
+    }
+    const paidTot = paidCap + paidInt;
+    return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
+  }
+
+  // 4. Si la cuota es 'pending' u 'overdue' pero se realizó un abono parcial (reducido el amount)
+  if (loan && loan.installmentsCount > 0) {
+    const origTotal = Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100;
+    if (inst.amount < origTotal && inst.amount >= 0) {
+      const paidTot = Math.max(0, origTotal - inst.amount);
+      const ratio = loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
+      const paidCap = Math.round(paidTot * ratio);
+      const paidInt = paidTot - paidCap;
+      return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
+    }
+  }
+
+  return { paidCapital: 0, paidInterest: 0, paidTotal: 0 };
+}
+
+/**
  * Calcula el resumen financiero de forma precisa respetando abonos y pagos cobrados
  */
 export function calculateFinancialSummary(loans: Loan[], installments: Installment[]): FinancialSummary {
   const todayStr = new Date().toISOString().split('T')[0];
+  const loansMap = new Map<string, Loan>();
+  loans.forEach(l => loansMap.set(l.id, l));
 
   // 1. Capital Prestado: suma del capital original emitido en préstamos
   const totalCapitalLent = loans.reduce((acc, curr) => acc + curr.capital, 0);
@@ -37,21 +88,15 @@ export function calculateFinancialSummary(loans: Loan[], installments: Installme
   let overdueInstallmentsCount = 0;
 
   installments.forEach(inst => {
-    // Acumular lo efectivamente cobrado (abonos parciales y pagos completos)
-    if (inst.paidCapitalAmount !== undefined && inst.paidCapitalAmount !== null) {
-      totalPaidCapital += inst.paidCapitalAmount;
-    } else if (inst.status === 'paid') {
-      totalPaidCapital += inst.capitalAmount;
-    }
-
-    if (inst.paidInterestAmount !== undefined && inst.paidInterestAmount !== null) {
-      totalPaidInterest += inst.paidInterestAmount;
-    } else if (inst.status === 'paid') {
-      totalPaidInterest += inst.interestAmount;
-    }
+    const loan = loansMap.get(inst.loanId);
+    
+    // Obtener desglose pagado de la cuota
+    const { paidCapital, paidInterest } = getPaidBreakdownForInstallment(inst, loan);
+    totalPaidCapital += paidCapital;
+    totalPaidInterest += paidInterest;
 
     // Pendientes (cuotas no pagadas completamente)
-    if (inst.status !== 'paid') {
+    if (inst.status !== 'paid' && inst.amount > 0) {
       pendingCapital += inst.capitalAmount;
       pendingInterest += inst.interestAmount;
 
