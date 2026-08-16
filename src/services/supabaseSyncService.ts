@@ -24,10 +24,10 @@ export const computeCapitalBox = (
   const pendingInstallments = installments.filter(i => i.status !== 'paid');
   const totalLent = pendingInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
 
-  const paidInstallments = installments.filter(i => i.status === 'paid');
-  const totalRecovered = paidInstallments.reduce((acc, curr) => acc + curr.capitalAmount, 0);
-  const totalInterestRecovered = paidInstallments.reduce((acc, curr) => acc + curr.interestAmount, 0);
-  const totalPaidAmount = paidInstallments.reduce((acc, curr) => acc + curr.amount, 0);
+  const paidInstallments = installments.filter(i => i.status === 'paid' || (i.paidAmount ?? 0) > 0);
+  const totalRecovered = paidInstallments.reduce((acc, curr) => acc + (curr.paidCapitalAmount ?? (curr.status === 'paid' ? curr.capitalAmount : 0)), 0);
+  const totalInterestRecovered = paidInstallments.reduce((acc, curr) => acc + (curr.paidInterestAmount ?? (curr.status === 'paid' ? curr.interestAmount : 0)), 0);
+  const totalPaidAmount = paidInstallments.reduce((acc, curr) => acc + (curr.paidAmount ?? (curr.status === 'paid' ? curr.amount : 0)), 0);
 
   const totalDisbursed = loans.reduce((acc, curr) => acc + curr.capital, 0);
 

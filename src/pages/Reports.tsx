@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { formatCurrency } from '../services/loanCalculator';
+import { formatCurrency, calculateFinancialSummary } from '../services/loanCalculator';
 import { BarChart3, TrendingUp, Users, Printer } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 
@@ -110,9 +110,8 @@ export const Reports: React.FC<ReportsProps> = ({
   const interesesRecuperadosPeriodo = paidInstallmentsInPeriod.reduce((acc, curr) => acc + curr.interestAmount, 0);
 
   // Totales generales para métricas de "Cierre"
-  const totalOriginalToPayOverall = loans.reduce((acc, curr) => acc + curr.totalToPay, 0);
-  const totalPaidOverall = installments.filter(i => i.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
-  const enCalleOverall = Math.max(totalOriginalToPayOverall - totalPaidOverall, 0);
+  const summaryOverall = calculateFinancialSummary(loans, installments);
+  const enCalleOverall = summaryOverall.enCalle;
 
   // Tasa de recuperación del período
   const paidCount = filteredInstallments.filter(i => i.status === 'paid').length;

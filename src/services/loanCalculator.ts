@@ -1,4 +1,91 @@
-import type { PaymentFrequency, Installment } from '../types';
+import type { PaymentFrequency, Installment, Loan } from '../types';
+
+/**
+ * Interface para el resumen financiero consolidado
+ */
+export interface FinancialSummary {
+  totalCapitalLent: number;       // Capital Prestado (volumen histórico)
+  enCalle: number;                // En Calle (Capital principal pendiente de devolución en préstamos activos)
+  totalPaidCapital: number;       // Capital recuperado cobrado
+  totalPaidInterest: number;      // Interés recuperado cobrado
+  totalRecovered: number;         // Total Recuperado (Capital + Interés cobrado)
+  netProfit: number;              // Ganancia Neta (Intereses cobrados)
+  pendingCapital: number;         // Capital por cobrar
+  pendingInterest: number;        // Próximos intereses por cobrar
+  totalPending: number;           // Pendiente total por cobrar
+  overdueCapital: number;         // Capital en mora
+  overdueInterest: number;        // Interés en mora
+  totalOverdue: number;           // Total en mora
+  overdueInstallmentsCount: number; // Cantidad de cuotas vencidas
+}
+
+/**
+ * Calcula el resumen financiero de forma precisa respetando abonos y pagos cobrados
+ */
+export function calculateFinancialSummary(loans: Loan[], installments: Installment[]): FinancialSummary {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // 1. Capital Prestado: suma del capital original emitido en préstamos
+  const totalCapitalLent = loans.reduce((acc, curr) => acc + curr.capital, 0);
+
+  let totalPaidCapital = 0;
+  let totalPaidInterest = 0;
+  let pendingCapital = 0;
+  let pendingInterest = 0;
+  let overdueCapital = 0;
+  let overdueInterest = 0;
+  let overdueInstallmentsCount = 0;
+
+  installments.forEach(inst => {
+    // Acumular lo efectivamente cobrado (abonos parciales y pagos completos)
+    if (inst.paidCapitalAmount !== undefined && inst.paidCapitalAmount !== null) {
+      totalPaidCapital += inst.paidCapitalAmount;
+    } else if (inst.status === 'paid') {
+      totalPaidCapital += inst.capitalAmount;
+    }
+
+    if (inst.paidInterestAmount !== undefined && inst.paidInterestAmount !== null) {
+      totalPaidInterest += inst.paidInterestAmount;
+    } else if (inst.status === 'paid') {
+      totalPaidInterest += inst.interestAmount;
+    }
+
+    // Pendientes (cuotas no pagadas completamente)
+    if (inst.status !== 'paid') {
+      pendingCapital += inst.capitalAmount;
+      pendingInterest += inst.interestAmount;
+
+      const isInstOverdue = inst.status === 'overdue' || inst.dueDate < todayStr;
+      if (isInstOverdue) {
+        overdueCapital += inst.capitalAmount;
+        overdueInterest += inst.interestAmount;
+        overdueInstallmentsCount += 1;
+      }
+    }
+  });
+
+  const totalRecovered = totalPaidCapital + totalPaidInterest;
+  const netProfit = totalPaidInterest;
+  const enCalle = pendingCapital;
+  const totalPending = pendingCapital + pendingInterest;
+  const totalOverdue = overdueCapital + overdueInterest;
+
+  return {
+    totalCapitalLent,
+    enCalle,
+    totalPaidCapital,
+    totalPaidInterest,
+    totalRecovered,
+    netProfit,
+    pendingCapital,
+    pendingInterest,
+    totalPending,
+    overdueCapital,
+    overdueInterest,
+    totalOverdue,
+    overdueInstallmentsCount
+  };
+}
 
 /**
  * Añade días a una fecha (formato YYYY-MM-DD)
@@ -106,6 +193,9 @@ export function generateInstallments(params: {
       amount,
       capitalAmount,
       interestAmount,
+      paidAmount: 0,
+      paidCapitalAmount: 0,
+      paidInterestAmount: 0,
       dueDate: currentPaymentDate,
       paidDate: null,
       status: 'pending'
@@ -134,3 +224,4 @@ export function isOverdue(dueDateStr: string): boolean {
   const todayStr = new Date().toISOString().split('T')[0];
   return dueDateStr < todayStr;
 }
+

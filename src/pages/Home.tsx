@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Client, Loan, Installment, CapitalBox } from '../types';
-import { formatCurrency } from '../services/loanCalculator';
-import { TrendingUp, Users, DollarSign, Wallet, Calendar, FileText, ChevronRight, UserPlus, FilePlus } from 'lucide-react';
+import { formatCurrency, calculateFinancialSummary } from '../services/loanCalculator';
+import { TrendingUp, Users, DollarSign, Wallet, Calendar, FileText, ChevronRight, UserPlus, FilePlus, Banknote, Route, Heart, Sparkles, Hourglass, Siren } from 'lucide-react';
 
 interface HomeProps {
   clients: Client[];
@@ -38,25 +38,10 @@ export const Home: React.FC<HomeProps> = ({
     ? (paidInstallments.length / totalInstallmentsCount) * 100 
     : 0;
 
-  // Resumen Financiero
-  const totalCapitalLent = loans.reduce((acc, curr) => acc + curr.capital, 0);
-  const totalAmountPaid = installments
-    .filter(i => i.status === 'paid')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  
-  // Pendiente en la calle = Total a Pagar original - Total Pagado
-  const totalOriginalAmountToPay = loans.reduce((acc, curr) => acc + curr.totalToPay, 0);
-  const totalAmountPending = Math.max(totalOriginalAmountToPay - totalAmountPaid, 0);
+  // Resumen Financiero Consolidado (6 métricas según requerimiento)
+  const summary = calculateFinancialSummary(loans, installments);
 
-  // Capital e interés pendiente desglosado
-  const pendingCapital = installments
-    .filter(i => i.status !== 'paid')
-    .reduce((acc, curr) => acc + curr.capitalAmount, 0);
-  const pendingInterest = installments
-    .filter(i => i.status !== 'paid')
-    .reduce((acc, curr) => acc + curr.interestAmount, 0);
-
-  // Próximos cobros en los siguientes 7 días (excluyendo domingos o no)
+  // Próximos cobros en los siguientes 7 días
   const todayStr = new Date().toISOString().split('T')[0];
   const next7DaysStr = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const upcomingPaymentsCount = installments.filter(
@@ -114,26 +99,80 @@ export const Home: React.FC<HomeProps> = ({
       {/* Resumen Financiero */}
       <div className="card shadow-md">
         <div className="card-header-icon-title">
-          <Wallet size={20} className="icon-orange" />
+          <span style={{ fontSize: '20px', lineHeight: 1 }}>💰</span>
           <h3>Resumen Financiero</h3>
         </div>
         
-        <div className="financial-totals">
-          <div className="financial-item">
-            <div className="financial-lbl">Capital Prestado</div>
-            <div className="financial-val">{formatCurrency(totalCapitalLent)}</div>
-          </div>
-          
-          <div className="financial-item border-top">
-            <div className="financial-lbl">Recuperado (Capital + Intereses)</div>
-            <div className="financial-val success">{formatCurrency(totalAmountPaid)}</div>
+        <div className="summary-cards-list">
+          {/* 1. Capital Prestado */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-blue">
+              <Banknote size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val default">{formatCurrency(summary.totalCapitalLent)}</div>
+              <div className="summary-title">Capital Prestado</div>
+              <div className="summary-subtext">Volumen histórico de créditos emitidos (incluye renovaciones)</div>
+            </div>
           </div>
 
-          <div className="financial-item border-top">
-            <div className="financial-lbl">Pendiente (En la Calle)</div>
-            <div className="financial-val warning">{formatCurrency(totalAmountPending)}</div>
-            <div className="financial-subtext">
-              Capital: {formatCurrency(pendingCapital)} · Intereses: {formatCurrency(pendingInterest)}
+          {/* 2. En Calle */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-amber">
+              <Route size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val amber">{formatCurrency(summary.enCalle)}</div>
+              <div className="summary-title">En Calle</div>
+              <div className="summary-subtext">Capital principal pendiente de devolución en préstamos activos. Incluye saldo de créditos abiertos y bullet</div>
+            </div>
+          </div>
+
+          {/* 3. Recuperado */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-green">
+              <Heart size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val green">{formatCurrency(summary.totalRecovered)}</div>
+              <div className="summary-title">Recuperado</div>
+              <div className="summary-subtext">Capital {formatCurrency(summary.totalPaidCapital)} · Int. {formatCurrency(summary.totalPaidInterest)}</div>
+            </div>
+          </div>
+
+          {/* 4. Ganancia Neta */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-green">
+              <Sparkles size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val green">{formatCurrency(summary.netProfit)}</div>
+              <div className="summary-title">Ganancia Neta</div>
+              <div className="summary-subtext">Int. {formatCurrency(summary.totalPaidInterest)}</div>
+            </div>
+          </div>
+
+          {/* 5. Pendiente */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-orange">
+              <Hourglass size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val orange">{formatCurrency(summary.totalPending)}</div>
+              <div className="summary-title">Pendiente</div>
+              <div className="summary-subtext">Capital {formatCurrency(summary.pendingCapital)} · Próx. interés {formatCurrency(summary.pendingInterest)}</div>
+            </div>
+          </div>
+
+          {/* 6. Vencido */}
+          <div className="summary-card">
+            <div className="summary-icon-box icon-red">
+              <Siren size={22} />
+            </div>
+            <div className="summary-card-content">
+              <div className="summary-val red">{formatCurrency(summary.totalOverdue)}</div>
+              <div className="summary-title">Vencido</div>
+              <div className="summary-subtext">Capital {formatCurrency(summary.overdueCapital)} · Int. {formatCurrency(summary.overdueInterest)}</div>
             </div>
           </div>
         </div>
@@ -311,49 +350,92 @@ export const Home: React.FC<HomeProps> = ({
         .icon-orange { color: var(--warning); }
         .icon-blue { color: var(--primary); }
 
-        .financial-totals {
+        .summary-cards-list {
           display: flex;
           flex-direction: column;
+          gap: 10px;
         }
 
-        .financial-item {
-          padding: 10px 0;
+        .summary-card {
+          background-color: var(--bg-app);
+          border: 1px solid var(--border-color);
+          border-radius: 14px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .summary-card:hover {
+          transform: translateY(-1px);
+        }
+
+        .summary-icon-box {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .summary-icon-box.icon-blue {
+          background-color: rgba(14, 165, 233, 0.12);
+          color: #0284c7;
+        }
+
+        .summary-icon-box.icon-amber {
+          background-color: rgba(245, 158, 11, 0.15);
+          color: #d97706;
+        }
+
+        .summary-icon-box.icon-green {
+          background-color: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+        }
+
+        .summary-icon-box.icon-orange {
+          background-color: rgba(249, 115, 22, 0.15);
+          color: #ea580c;
+        }
+
+        .summary-icon-box.icon-red {
+          background-color: rgba(239, 68, 68, 0.15);
+          color: #dc2626;
+        }
+
+        .summary-card-content {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
         }
 
-        .financial-item:first-child {
-          padding-top: 0;
-        }
-
-        .financial-item:last-child {
-          padding-bottom: 0;
-        }
-
-        .financial-item.border-top {
-          border-top: 1px solid var(--border-color);
-        }
-
-        .financial-lbl {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        .financial-val {
+        .summary-val {
           font-family: var(--font-heading);
-          font-size: 18px;
+          font-size: 19px;
+          font-weight: 800;
+          line-height: 1.25;
+        }
+
+        .summary-val.default { color: var(--text-primary); }
+        .summary-val.amber { color: #d97706; }
+        .summary-val.green { color: #10b981; }
+        .summary-val.orange { color: #ea580c; }
+        .summary-val.red { color: #dc2626; }
+
+        .summary-title {
+          font-size: 13px;
           font-weight: 700;
           color: var(--text-primary);
         }
 
-        .financial-val.success { color: var(--success); }
-        .financial-val.warning { color: var(--warning); }
-
-        .financial-subtext {
+        .summary-subtext {
           font-size: 11px;
           color: var(--text-tertiary);
-          margin-top: 2px;
+          line-height: 1.25;
+          margin-top: 1px;
         }
 
         .card-header-with-action {

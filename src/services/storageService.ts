@@ -184,6 +184,10 @@ export const storageService = {
       const paidCapital = Math.round(installment.capitalAmount * ratio);
       const paidInterest = amountToPay - paidCapital;
 
+      installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
+      installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
+      installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+
       // Reducir la cuota actual con el saldo que falta por pagar
       installment.amount -= amountToPay;
       installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
@@ -196,8 +200,18 @@ export const storageService = {
     } else {
       // Pago Completo o Abono Mayor
       const originalAmount = installment.amount;
+      const originalCapital = installment.capitalAmount;
+      const originalInterest = installment.interestAmount;
+
+      installment.paidAmount = (installment.paidAmount ?? 0) + originalAmount;
+      installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + originalCapital;
+      installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + originalInterest;
+
       installment.status = 'paid';
       installment.paidDate = todayStr;
+      installment.amount = 0;
+      installment.capitalAmount = 0;
+      installment.interestAmount = 0;
 
       const excess = amountToPay - originalAmount;
       if (excess > 0) {
@@ -208,11 +222,26 @@ export const storageService = {
           if (nextInstIdx !== -1) {
             const nextInst = installments[nextInstIdx];
             if (excess >= nextInst.amount) {
+              const nextInstOriginalAmount = nextInst.amount;
+              const nextInstOriginalCapital = nextInst.capitalAmount;
+              const nextInstOriginalInterest = nextInst.interestAmount;
+
+              nextInst.paidAmount = (nextInst.paidAmount ?? 0) + nextInstOriginalAmount;
+              nextInst.paidCapitalAmount = (nextInst.paidCapitalAmount ?? 0) + nextInstOriginalCapital;
+              nextInst.paidInterestAmount = (nextInst.paidInterestAmount ?? 0) + nextInstOriginalInterest;
               nextInst.status = 'paid';
               nextInst.paidDate = todayStr;
+              nextInst.amount = 0;
+              nextInst.capitalAmount = 0;
+              nextInst.interestAmount = 0;
             } else {
               const ratio = excess / nextInst.amount;
               const paidCap = Math.round(nextInst.capitalAmount * ratio);
+              const paidInt = excess - paidCap;
+
+              nextInst.paidAmount = (nextInst.paidAmount ?? 0) + excess;
+              nextInst.paidCapitalAmount = (nextInst.paidCapitalAmount ?? 0) + paidCap;
+              nextInst.paidInterestAmount = (nextInst.paidInterestAmount ?? 0) + paidInt;
               nextInst.amount -= excess;
               nextInst.capitalAmount = Math.max(0, nextInst.capitalAmount - paidCap);
               nextInst.interestAmount = Math.max(0, nextInst.amount - nextInst.capitalAmount);
