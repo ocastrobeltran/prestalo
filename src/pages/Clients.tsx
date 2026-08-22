@@ -203,14 +203,24 @@ export const Clients: React.FC<ClientsProps> = ({
                                   </div>
                                   <div className="client-inst-grid">
                                     {loanInsts.map(inst => (
-                                      <div key={inst.id} className={`inst-mini-card ${inst.status}`}>
+                                      <div key={inst.id} className={`inst-mini-card ${inst.status} ${inst.isPactada ? 'pactada' : ''}`}>
                                         <div className="inst-mini-info">
                                           <span className="inst-num">Cuota #{inst.number}</span>
                                           <span className="inst-date">{inst.dueDate}</span>
-                                          <span className="inst-amount font-bold">{formatCurrency(inst.amount)}</span>
+                                          <span className="inst-amount font-bold">
+                                            {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
+                                          </span>
                                         </div>
                                         {inst.status === 'paid' ? (
-                                          <span className="inst-paid-badge"><CheckCircle2 size={12} /> Pagada</span>
+                                          inst.isPactada ? (
+                                            <span className="inst-paid-badge pactada" title={`Pactada con abono de ${formatCurrency(inst.paidAmount || 0)}`}>
+                                              <CheckCircle2 size={12} /> Pactada
+                                            </span>
+                                          ) : (
+                                            <span className="inst-paid-badge">
+                                              <CheckCircle2 size={12} /> Pagada
+                                            </span>
+                                          )
                                         ) : (
                                           <button 
                                             className="inst-pay-btn"
@@ -594,6 +604,15 @@ export const Clients: React.FC<ClientsProps> = ({
           display: flex;
           align-items: center;
           gap: 4px;
+        }
+
+        .inst-paid-badge.pactada {
+          color: #0284c7;
+        }
+
+        .inst-mini-card.pactada {
+          border-color: rgba(2, 132, 199, 0.3);
+          background-color: rgba(2, 132, 199, 0.04);
         }
 
         .empty-state {

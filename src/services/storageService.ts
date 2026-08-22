@@ -166,7 +166,7 @@ export const storageService = {
     return data ? JSON.parse(data) : [];
   },
 
-  payInstallment(installmentId: string, customAmount?: number): Installment {
+  payInstallment(installmentId: string, customAmount?: number, isPactada?: boolean): Installment {
     const installments = this.getInstallments();
     const idx = installments.findIndex(i => i.id === installmentId);
     if (idx === -1) throw new Error('Cuota no encontrada');
@@ -179,23 +179,43 @@ export const storageService = {
     const actualPaidAmount = amountToPay;
     
     if (amountToPay < installment.amount) {
-      // Abono Parcial: calcular proporciones de capital e interés pagados
-      const ratio = amountToPay / installment.amount;
-      const paidCapital = Math.round(installment.capitalAmount * ratio);
-      const paidInterest = amountToPay - paidCapital;
+      if (isPactada) {
+        // Cuota Pactada (Abono menor acordado y cuota dada por cumplida/cerrada sin mora)
+        const ratio = amountToPay / installment.amount;
+        const paidCapital = Math.round(installment.capitalAmount * ratio);
+        const paidInterest = amountToPay - paidCapital;
+        const waived = installment.amount - amountToPay;
 
-      installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
-      installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
-      installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+        installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
+        installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
+        installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+        installment.isPactada = true;
+        installment.waivedAmount = (installment.waivedAmount ?? 0) + waived;
 
-      // Reducir la cuota actual con el saldo que falta por pagar
-      installment.amount -= amountToPay;
-      installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
-      installment.interestAmount = Math.max(0, installment.interestAmount - paidInterest);
-
-      if (installment.amount <= 0) {
+        installment.amount = 0;
+        installment.capitalAmount = 0;
+        installment.interestAmount = 0;
         installment.status = 'paid';
         installment.paidDate = todayStr;
+      } else {
+        // Abono Parcial Estándar: calcular proporciones de capital e interés pagados y mantener saldo restante
+        const ratio = amountToPay / installment.amount;
+        const paidCapital = Math.round(installment.capitalAmount * ratio);
+        const paidInterest = amountToPay - paidCapital;
+
+        installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
+        installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
+        installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+
+        // Reducir la cuota actual con el saldo que falta por pagar
+        installment.amount -= amountToPay;
+        installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
+        installment.interestAmount = Math.max(0, installment.interestAmount - paidInterest);
+
+        if (installment.amount <= 0) {
+          installment.status = 'paid';
+          installment.paidDate = todayStr;
+        }
       }
     } else {
       // Pago Completo o Abono Mayor
@@ -256,10 +276,14 @@ export const storageService = {
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
     
     // Registrar transacción con el monto abonado exacto
+    const txDesc = isPactada && amountToPay < (installment.paidAmount || amountToPay)
+      ? `Pago pactado Cuota #${installment.number} de ${installment.clientName}`
+      : `Pago/Abono Cuota #${installment.number} de ${installment.clientName}`;
+
     const tx = this.addTransaction({
       amount: actualPaidAmount,
       type: 'installment_payment',
-      description: `Pago/Abono Cuota #${installment.number} de ${installment.clientName}`,
+      description: txDesc,
       referenceId: installment.loanId
     });
     

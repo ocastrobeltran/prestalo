@@ -39,7 +39,13 @@ export const LoanReceiptModal: React.FC<LoanReceiptModalProps> = ({ isOpen, onCl
 *Fecha de Vence:* ${loan.endDate}
 
 *Plan de Cuotas:*
-${loanInstallments.map(i => `- Cuota #${i.number}: ${formatCurrency(i.amount)} [Vence: ${i.dueDate}] -> *${i.status === 'paid' ? 'PAGADO ✓' : 'PENDIENTE'}*`).join('\n')}
+${loanInstallments.map(i => {
+  const estado = i.status === 'paid' 
+    ? (i.isPactada ? `PAGADO PACTADO (${formatCurrency(i.paidAmount || i.amount)}) ✓` : 'PAGADO ✓')
+    : 'PENDIENTE';
+  const montoStr = i.status === 'paid' ? formatCurrency(i.paidAmount || i.amount) : formatCurrency(i.amount);
+  return `- Cuota #${i.number}: ${montoStr} [Vence: ${i.dueDate}] -> *${estado}*`;
+}).join('\n')}
 
 Gracias por su confianza.`;
     
@@ -122,9 +128,14 @@ Gracias por su confianza.`;
                     <Calendar size={12} />
                     {inst.dueDate}
                   </span>
-                  <span className="font-semibold text-right">{formatCurrency(inst.amount)}</span>
+                  <span className="font-semibold text-right">
+                    {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
+                  </span>
                   <span className="text-right">
-                    <Badge status={inst.status} text={inst.status === 'paid' ? 'Pagada' : 'Pendiente'} />
+                    <Badge 
+                      status={inst.status} 
+                      text={inst.status === 'paid' ? (inst.isPactada ? 'Pactada' : 'Pagada') : 'Pendiente'} 
+                    />
                   </span>
                 </div>
               ))}

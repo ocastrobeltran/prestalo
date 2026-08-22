@@ -46,10 +46,16 @@ export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): 
     
     // Si al pagarse el capitalAmount fue reseteado a 0, recalcular usando las condiciones del préstamo
     if ((paidCap === 0 && paidInt === 0) && loan && loan.installmentsCount > 0) {
-      paidCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
-      paidInt = Math.round(((loan.capital * loan.interestRate / 100) / loan.installmentsCount) * 100) / 100;
+      if (inst.isPactada && inst.paidAmount) {
+        const ratio = loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
+        paidCap = Math.round(inst.paidAmount * ratio);
+        paidInt = inst.paidAmount - paidCap;
+      } else {
+        paidCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
+        paidInt = Math.round(((loan.capital * loan.interestRate / 100) / loan.installmentsCount) * 100) / 100;
+      }
     }
-    const paidTot = paidCap + paidInt;
+    const paidTot = inst.paidAmount || (paidCap + paidInt);
     return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
   }
 

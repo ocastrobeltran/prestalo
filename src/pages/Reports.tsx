@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { formatCurrency, calculateFinancialSummary } from '../services/loanCalculator';
+import { formatCurrency, calculateFinancialSummary, getPaidBreakdownForInstallment } from '../services/loanCalculator';
 import { BarChart3, TrendingUp, Users, Printer } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 
@@ -106,8 +106,18 @@ export const Reports: React.FC<ReportsProps> = ({
     paidInstallmentsInPeriod = paidInstallmentsInPeriod.filter(i => i.paidDate && i.paidDate.startsWith(currentYearMonth));
   }
 
-  const capitalRecuperadoPeriodo = paidInstallmentsInPeriod.reduce((acc, curr) => acc + curr.capitalAmount, 0);
-  const interesesRecuperadosPeriodo = paidInstallmentsInPeriod.reduce((acc, curr) => acc + curr.interestAmount, 0);
+  const loansMap = new Map<string, Loan>();
+  loans.forEach(l => loansMap.set(l.id, l));
+
+  let capitalRecuperadoPeriodo = 0;
+  let interesesRecuperadosPeriodo = 0;
+
+  paidInstallmentsInPeriod.forEach(inst => {
+    const loan = loansMap.get(inst.loanId);
+    const { paidCapital, paidInterest } = getPaidBreakdownForInstallment(inst, loan);
+    capitalRecuperadoPeriodo += paidCapital;
+    interesesRecuperadosPeriodo += paidInterest;
+  });
 
   // Totales generales para métricas de "Cierre"
   const summaryOverall = calculateFinancialSummary(loans, installments);
@@ -147,10 +157,12 @@ export const Reports: React.FC<ReportsProps> = ({
     const clientPayments: { [name: string]: { amount: number, count: number } } = {};
     installments.forEach(inst => {
       if (inst.status === 'paid') {
+        const loan = loansMap.get(inst.loanId);
+        const { paidTotal } = getPaidBreakdownForInstallment(inst, loan);
         if (!clientPayments[inst.clientName]) {
           clientPayments[inst.clientName] = { amount: 0, count: 0 };
         }
-        clientPayments[inst.clientName].amount += inst.amount;
+        clientPayments[inst.clientName].amount += paidTotal;
         clientPayments[inst.clientName].count += 1;
       }
     });

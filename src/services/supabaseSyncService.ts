@@ -117,6 +117,11 @@ const toDbInstallment = (i: Installment) => ({
   amount: i.amount,
   capital_amount: i.capitalAmount,
   interest_amount: i.interestAmount,
+  paid_amount: i.paidAmount ?? 0,
+  paid_capital_amount: i.paidCapitalAmount ?? 0,
+  paid_interest_amount: i.paidInterestAmount ?? 0,
+  is_pactada: !!i.isPactada,
+  waived_amount: i.waivedAmount ?? 0,
   due_date: i.dueDate,
   paid_date: i.paidDate || null,
   status: i.status
@@ -131,6 +136,11 @@ const fromDbInstallment = (row: any): Installment => ({
   amount: Number(row.amount),
   capitalAmount: Number(row.capital_amount),
   interestAmount: Number(row.interest_amount),
+  paidAmount: row.paid_amount !== undefined && row.paid_amount !== null ? Number(row.paid_amount) : undefined,
+  paidCapitalAmount: row.paid_capital_amount !== undefined && row.paid_capital_amount !== null ? Number(row.paid_capital_amount) : undefined,
+  paidInterestAmount: row.paid_interest_amount !== undefined && row.paid_interest_amount !== null ? Number(row.paid_interest_amount) : undefined,
+  isPactada: Boolean(row.is_pactada),
+  waivedAmount: row.waived_amount !== undefined && row.waived_amount !== null ? Number(row.waived_amount) : undefined,
   dueDate: row.due_date,
   paidDate: row.paid_date || null,
   status: row.status

@@ -39,6 +39,8 @@ export interface Installment {
   dueDate: string;             // Fecha de vencimiento (YYYY-MM-DD)
   paidDate: string | null;     // Fecha de pago (null si no está pagada)
   status: 'pending' | 'paid' | 'overdue';
+  isPactada?: boolean;         // Si la cuota fue cerrada con acuerdo/pacto de abono menor
+  waivedAmount?: number;       // Monto condonado/pactado en la cuota
 }
 
 export interface CapitalBox {

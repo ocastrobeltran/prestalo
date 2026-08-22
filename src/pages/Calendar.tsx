@@ -17,12 +17,12 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, onPay
   const [viewMode, setViewMode] = useState<CalendarViewMode>('mes');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   
-  // Fecha seleccionada para filtrar
-  const [selectedDate, setSelectedDate] = useState(() => new Date('2026-07-04T12:00:00')); // Fecha fija inicial basada en las capturas (4 de Julio de 2026)
+  // Fecha seleccionada para filtrar (dinámica según la fecha real del sistema)
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
 
-  // Mes de visualización del calendario
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(6); // Julio (0-indexed, 6 = julio)
+  // Mes y año de visualización del calendario (dinámico según la fecha actual)
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
 
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -30,6 +30,14 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, onPay
   ];
 
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  // Helper para formatear fechas a YYYY-MM-DD según la zona horaria local
+  const formatLocalDate = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   // Incrementar/decrementar mes
   const handlePrevMonth = () => {
@@ -52,16 +60,16 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, onPay
 
   // Obtener lista de cuotas filtradas según la vista seleccionada
   const getFilteredInstallments = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
+    const selectedDateStr = formatLocalDate(selectedDate);
     
     let result = installments;
 
     // 1. Filtrar por período/vista
     if (viewMode === 'hoy') {
-      result = installments.filter(i => i.dueDate === selectedDateStr);
+      result = installments.filter(i => i.dueDate === todayStr);
     } else if (viewMode === '7d') {
-      const sevenDaysLater = new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const sevenDaysLater = formatLocalDate(new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000));
       result = installments.filter(i => i.dueDate >= selectedDateStr && i.dueDate <= sevenDaysLater);
     } else if (viewMode === 'mes') {
       // Filtrar por la fecha específica seleccionada en la grilla mensual
@@ -82,14 +90,14 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, onPay
 
   // Metricas del período actual de visualización
   const getPeriodMetrics = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
+    const selectedDateStr = formatLocalDate(selectedDate);
     let periodInstallments = installments;
 
     if (viewMode === 'hoy') {
-      periodInstallments = installments.filter(i => i.dueDate === selectedDateStr);
+      periodInstallments = installments.filter(i => i.dueDate === todayStr);
     } else if (viewMode === '7d') {
-      const sevenDaysLater = new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const sevenDaysLater = formatLocalDate(new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000));
       periodInstallments = installments.filter(i => i.dueDate >= selectedDateStr && i.dueDate <= sevenDaysLater);
     } else if (viewMode === 'mes') {
       // Para métricas del mes completo visible
@@ -285,15 +293,17 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
 
           <div className="calendar-days-grid">
             {monthDays.map((dayObj, index) => {
-              const isSelected = selectedDate.toISOString().split('T')[0] === dayObj.dateStr;
+              const isSelected = formatLocalDate(selectedDate) === dayObj.dateStr;
+              const isToday = formatLocalDate(new Date()) === dayObj.dateStr;
               const dateInstallments = getInstallmentsForDate(dayObj.dateStr);
               const pendingCount = dateInstallments.filter(i => i.status === 'pending').length;
 
               return (
                 <div 
                   key={index} 
-                  className={`calendar-day-cell ${dayObj.isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected' : ''}`}
+                  className={`calendar-day-cell ${dayObj.isCurrentMonth ? '' : 'other-month'} ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
                   onClick={() => handleDayClick(dayObj.dateStr)}
+                  title={isToday ? 'Hoy' : undefined}
                 >
                   <span className="day-number">{dayObj.day}</span>
                   {pendingCount > 0 && (
@@ -336,19 +346,27 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
                     </div>
                     <Badge 
                       status={inst.status === 'paid' ? 'paid' : (isOverdueInst ? 'overdue' : 'pending')} 
-                      text={inst.status === 'paid' ? 'Pagada' : (isOverdueInst ? 'Vencida' : 'Pendiente')}
+                      text={inst.status === 'paid' ? (inst.isPactada ? 'Pagada (Pactada)' : 'Pagada') : (isOverdueInst ? 'Vencida' : 'Pendiente')}
                     />
                   </div>
 
                   <div className="cobro-financial-split">
                     <div className="cobro-val-row">
-                      <span className="lbl">Monto de Cuota:</span>
-                      <span className="val primary">{formatCurrency(inst.amount)}</span>
+                      <span className="lbl">{inst.status === 'paid' ? 'Monto Cobrado:' : 'Monto de Cuota:'}</span>
+                      <span className="val primary">
+                        {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
+                      </span>
                     </div>
                     <div className="cobro-details-row">
-                      <span>Capital: {formatCurrency(inst.capitalAmount)}</span>
-                      <span>Interés: {formatCurrency(inst.interestAmount)}</span>
+                      <span>Capital: {formatCurrency(inst.status === 'paid' ? (inst.paidCapitalAmount || inst.capitalAmount) : inst.capitalAmount)}</span>
+                      <span>Interés: {formatCurrency(inst.status === 'paid' ? (inst.paidInterestAmount || inst.interestAmount) : inst.interestAmount)}</span>
                     </div>
+                    {inst.isPactada && inst.waivedAmount && inst.waivedAmount > 0 && (
+                      <div className="cobro-details-row text-xs" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                        <span>Acuerdo: Cuota pactada cumplida</span>
+                        <span>Condonado: {formatCurrency(inst.waivedAmount)}</span>
+                      </div>
+                    )}
                     <div className="cobro-date-row">
                       <span>Vence: {inst.dueDate}</span>
                       {inst.paidDate && <span className="success">Pagado el: {inst.paidDate}</span>}
@@ -577,6 +595,11 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
 
         .calendar-day-cell.other-month {
           opacity: 0.35;
+        }
+
+        .calendar-day-cell.today:not(.selected) {
+          border: 1.5px solid var(--primary);
+          font-weight: 800;
         }
 
         .calendar-day-cell.selected {

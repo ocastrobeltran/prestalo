@@ -7,7 +7,7 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   installment: Installment | null;
-  onConfirmPayment: (installmentId: string, amount: number) => void;
+  onConfirmPayment: (installmentId: string, amount: number, isPactada?: boolean) => void;
 }
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -17,16 +17,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onConfirmPayment
 }) => {
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
+  const [isPactada, setIsPactada] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (installment) {
       setPaymentAmount(installment.amount);
+      setIsPactada(false);
       setError(null);
     }
   }, [installment]);
 
   if (!isOpen || !installment) return null;
+
+  const isPartial = paymentAmount !== '' && Number(paymentAmount) < installment.amount;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +39,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
-    onConfirmPayment(installment.id, Number(paymentAmount));
+    onConfirmPayment(installment.id, Number(paymentAmount), isPartial && isPactada);
     onClose();
   };
 
   const handleFullPaymentClick = () => {
     setPaymentAmount(installment.amount);
+    setIsPactada(false);
   };
 
   return (
@@ -84,7 +89,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 step="any"
                 min="1"
                 value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : Number(e.target.value);
+                  setPaymentAmount(val);
+                  if (val !== '' && val >= installment.amount) {
+                    setIsPactada(false);
+                  }
+                }}
                 placeholder="Ej. 50000"
                 autoFocus
                 required
@@ -98,18 +109,47 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 Cuota Completa
               </button>
             </div>
+            
+            {/* Opción para Pactar Cuota cuando el monto es menor */}
+            {isPartial && (
+              <div className={`pacto-card ${isPactada ? 'active' : ''} animate-slide-up`}>
+                <label className="pacto-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={isPactada}
+                    onChange={(e) => setIsPactada(e.target.checked)}
+                    className="pacto-checkbox"
+                  />
+                  <div className="pacto-text-wrap">
+                    <span className="pacto-title">
+                      🤝 Pactar cuota como cumplida
+                    </span>
+                    <span className="pacto-desc">
+                      {isPactada ? (
+                        <strong>
+                          ✨ Se acepta este pago de {formatCurrency(Number(paymentAmount))} como liquidación total de la cuota. NO quedará saldo pendiente ni entrará en mora.
+                        </strong>
+                      ) : (
+                        `Marque esta casilla si acordó con el cliente recibir ${formatCurrency(Number(paymentAmount))} dando la cuota por pagada (sin generar mora por el faltante).`
+                      )}
+                    </span>
+                  </div>
+                </label>
+              </div>
+            )}
+
             <small className="help-text">
-              {paymentAmount !== '' && Number(paymentAmount) < installment.amount ? (
+              {isPartial && !isPactada ? (
                 <span className="text-warning">
-                  ⚠️ Abono parcial: La cuota mantendrá un saldo pendiente de {formatCurrency(installment.amount - Number(paymentAmount))}.
+                  ⚠️ Abono parcial estándar: La cuota mantendrá un saldo pendiente de {formatCurrency(installment.amount - Number(paymentAmount))} que vencerá en la fecha pactada.
                 </span>
               ) : paymentAmount !== '' && Number(paymentAmount) > installment.amount ? (
                 <span className="text-success">
                   ✨ Abono mayor: Cubre la cuota actual y el excedente se abonará al préstamo.
                 </span>
-              ) : (
+              ) : !isPartial ? (
                 'Puedes modificar este valor si el cliente realiza un abono parcial o mayor.'
-              )}
+              ) : null}
             </small>
           </div>
 
@@ -119,9 +159,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary success-btn">
+            <button type="submit" className={`btn-primary ${isPactada ? 'pactada-btn' : 'success-btn'}`}>
               <CheckCircle size={18} />
-              Confirmar Pago ({formatCurrency(Number(paymentAmount) || 0)})
+              {isPactada ? 'Confirmar Pago Pactado' : 'Confirmar Pago'} ({formatCurrency(Number(paymentAmount) || 0)})
             </button>
           </div>
         </form>
@@ -334,6 +374,63 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           align-items: center;
           justify-content: center;
           gap: 8px;
+        }
+
+        .pacto-card {
+          margin-top: 10px;
+          padding: 12px;
+          border-radius: 12px;
+          background-color: var(--bg-app);
+          border: 1.5px dashed rgba(14, 165, 233, 0.4);
+          transition: all 0.2s ease;
+        }
+
+        .pacto-card.active {
+          background-color: rgba(16, 185, 129, 0.08);
+          border: 1.5px solid #10b981;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+        }
+
+        .pacto-checkbox-label {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          cursor: pointer;
+        }
+
+        .pacto-checkbox {
+          width: 18px;
+          height: 18px;
+          margin-top: 2px;
+          cursor: pointer;
+          accent-color: #10b981;
+        }
+
+        .pacto-text-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .pacto-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .pacto-desc {
+          font-size: 11.5px;
+          color: var(--text-secondary);
+          line-height: 1.35;
+        }
+
+        .pactada-btn {
+          background: linear-gradient(135deg, #10b981, #0284c7) !important;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        }
+
+        .pactada-btn:hover {
+          opacity: 0.95;
         }
 
         .success-btn {

@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS installments (
     amount NUMERIC NOT NULL,
     capital_amount NUMERIC NOT NULL,
     interest_amount NUMERIC NOT NULL,
+    paid_amount NUMERIC DEFAULT 0,
+    paid_capital_amount NUMERIC DEFAULT 0,
+    paid_interest_amount NUMERIC DEFAULT 0,
+    is_pactada BOOLEAN DEFAULT false,
+    waived_amount NUMERIC DEFAULT 0,
     due_date TEXT NOT NULL,
     paid_date TEXT,
     status TEXT NOT NULL CHECK (status IN ('pending', 'paid', 'overdue'))

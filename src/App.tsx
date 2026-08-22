@@ -158,8 +158,8 @@ const App: React.FC = () => {
     setIsPaymentModalOpen(true);
   };
 
-  const handleConfirmPayment = (installmentId: string, amount: number) => {
-    storageService.payInstallment(installmentId, amount);
+  const handleConfirmPayment = (installmentId: string, amount: number, isPactada?: boolean) => {
+    storageService.payInstallment(installmentId, amount, isPactada);
     refreshData();
   };
 
