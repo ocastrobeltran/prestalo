@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { getPaidBreakdownForInstallment } from './loanCalculator';
+import { getPaidBreakdownForInstallment, addMonths } from './loanCalculator';
 
 // Claves locales sincronizadas con storageService
 const CLIENTS_KEY = 'prestalo_clients';
@@ -121,6 +121,8 @@ const toDbInstallment = (i: Installment) => ({
   paid_capital_amount: i.paidCapitalAmount ?? 0,
   paid_interest_amount: i.paidInterestAmount ?? 0,
   is_pactada: !!i.isPactada,
+  pact_date: i.pactDate || null,
+  pact_deadline: i.pactDeadline || null,
   waived_amount: i.waivedAmount ?? 0,
   due_date: i.dueDate,
   paid_date: i.paidDate || null,
@@ -169,6 +171,8 @@ const fromDbInstallment = (row: any): Installment => ({
   paidCapitalAmount: row.paid_capital_amount !== undefined && row.paid_capital_amount !== null ? Number(row.paid_capital_amount) : undefined,
   paidInterestAmount: row.paid_interest_amount !== undefined && row.paid_interest_amount !== null ? Number(row.paid_interest_amount) : undefined,
   isPactada: Boolean(row.is_pactada),
+  pactDate: row.pact_date || undefined,
+  pactDeadline: row.pact_deadline || undefined,
   waivedAmount: row.waived_amount !== undefined && row.waived_amount !== null ? Number(row.waived_amount) : undefined,
   dueDate: row.due_date,
   paidDate: row.paid_date || null,
@@ -272,6 +276,47 @@ export const supabaseSyncService = {
       const loans = (loansData || []).map(fromDbLoan);
       const installments = (instData || []).map(fromDbInstallment);
       const transactions = (txData || []).map(fromDbTransaction);
+
+      // Normalizar cuotas pactadas que hayan quedado con amount: 0 o status: 'paid'
+      const loansMap = new Map<string, Loan>();
+      loans.forEach(l => loansMap.set(l.id, l));
+
+      installments.forEach(inst => {
+        if (inst.isPactada) {
+          const loan = loansMap.get(inst.loanId);
+          const expectedTotal = (loan && loan.installmentsCount > 0)
+            ? Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100
+            : ((inst.paidAmount || 0) + inst.amount + (inst.waivedAmount || 0));
+
+          const currentPaid = (inst.paidAmount !== undefined && inst.paidAmount > 0)
+            ? inst.paidAmount
+            : Math.max(0, expectedTotal - (inst.waivedAmount || 0));
+
+          const pendingBalance = Math.max(0, expectedTotal - currentPaid);
+
+          if (pendingBalance > 0 && (inst.amount <= 0 || inst.status === 'paid')) {
+            inst.amount = pendingBalance;
+            const ratio = pendingBalance / (expectedTotal || 1);
+            const loanCapPerInst = loan ? loan.capital / loan.installmentsCount : pendingBalance * 0.8;
+            inst.capitalAmount = Math.round(loanCapPerInst * ratio);
+            inst.interestAmount = pendingBalance - inst.capitalAmount;
+            inst.paidAmount = currentPaid;
+            inst.paidCapitalAmount = Math.round(loanCapPerInst) - inst.capitalAmount;
+            inst.paidInterestAmount = currentPaid - (inst.paidCapitalAmount || 0);
+            inst.status = 'pending';
+            inst.paidDate = null;
+            if (!inst.pactDeadline) {
+              inst.pactDeadline = addMonths(inst.dueDate, 1);
+            }
+            if (!inst.pactDate) {
+              inst.pactDate = inst.dueDate;
+            }
+            if (loan && loan.status === 'completed') {
+              loan.status = 'active';
+            }
+          }
+        }
+      });
 
       const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>(CAPITAL_KEY, defaultBox);
       // Reconciliar dinámicamente la caja de capital para asegurar coherencia matemática

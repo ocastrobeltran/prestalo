@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Loan, Installment } from '../types';
-import { formatCurrency, getPaidBreakdownForInstallment } from '../services/loanCalculator';
+import { formatCurrency, getPaidBreakdownForInstallment, getInstallmentEffectiveStatus } from '../services/loanCalculator';
 import { Search, FilePlus, FileText, Trash2, ChevronDown, ChevronUp, DollarSign, CheckCircle2 } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { Badge } from '../components/common/Badge';
@@ -195,19 +195,41 @@ export const Loans: React.FC<LoansProps> = ({
                       {installments.filter(i => i.loanId === loan.id).map(inst => {
                         const breakdown = getPaidBreakdownForInstallment(inst, loan);
                         const paidVal = (inst.paidAmount && inst.paidAmount > 0) ? inst.paidAmount : breakdown.paidTotal;
+                        const effectiveStatus = getInstallmentEffectiveStatus(inst);
+                        const isPaid = effectiveStatus === 'paid';
+                        const isOverdueState = effectiveStatus === 'overdue';
+                        const isPactadaState = effectiveStatus === 'pactada';
+
                         return (
-                          <div key={inst.id} className={`inst-mini-card ${inst.status} ${inst.isPactada ? 'pactada' : ''}`}>
+                          <div key={inst.id} className={`inst-mini-card ${isPaid ? 'paid' : isOverdueState ? 'overdue' : ''} ${inst.isPactada ? 'pactada' : ''}`}>
                             <div className="inst-mini-info">
-                              <span className="inst-num">Cuota #{inst.number}</span>
-                              <span className="inst-date">{inst.dueDate}</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="inst-num">Cuota #{inst.number}</span>
+                                {isPactadaState && (
+                                  <span style={{ fontSize: '9px', color: '#0284c7', fontWeight: 700 }}>
+                                    🤝 Pactada
+                                  </span>
+                                )}
+                                {isOverdueState && (
+                                  <span style={{ fontSize: '9px', color: 'var(--danger)', fontWeight: 700 }}>
+                                    ⚠️ Vencida
+                                  </span>
+                                )}
+                              </div>
+                              <span className="inst-date">Vence: {inst.dueDate}</span>
+                              {inst.paidAmount && inst.paidAmount > 0 && !isPaid && (
+                                <span style={{ fontSize: '10px', color: 'var(--success)' }}>
+                                  Abonado: {formatCurrency(inst.paidAmount)}
+                                </span>
+                              )}
                               <span className="inst-amount font-bold">
-                                {inst.status === 'paid' ? formatCurrency(paidVal) : formatCurrency(inst.amount)}
+                                {isPaid ? formatCurrency(paidVal) : `Resta: ${formatCurrency(inst.amount)}`}
                               </span>
                             </div>
-                            {inst.status === 'paid' ? (
+                            {isPaid ? (
                               inst.isPactada ? (
-                                <span className="inst-paid-badge pactada" title={`Pactada con abono de ${formatCurrency(paidVal)}`}>
-                                  <CheckCircle2 size={12} /> Pactada
+                                <span className="inst-paid-badge pactada" title={`Completada tras pacto. Total pagado: ${formatCurrency(paidVal)}`}>
+                                  <CheckCircle2 size={12} /> Pagada (Pactada)
                                 </span>
                               ) : (
                                 <span className="inst-paid-badge">
@@ -215,17 +237,18 @@ export const Loans: React.FC<LoansProps> = ({
                                 </span>
                               )
                             ) : (
-                            <button 
-                              className="inst-pay-btn"
-                              onClick={() => onOpenPaymentModal(inst)}
-                            >
-                              <DollarSign size={13} />
-                              Abonar
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                              <button 
+                                className={`inst-pay-btn ${isPactadaState ? 'pactada-pay-btn' : ''}`}
+                                onClick={() => onOpenPaymentModal(inst)}
+                                title={isPactadaState ? 'Realizar abono libre para saldar cuota pactada' : 'Abonar a la cuota'}
+                              >
+                                <DollarSign size={13} />
+                                Abonar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -513,8 +536,21 @@ export const Loans: React.FC<LoansProps> = ({
         }
 
         .inst-mini-card.pactada {
-          border-color: rgba(2, 132, 199, 0.3);
-          background-color: rgba(2, 132, 199, 0.04);
+          border-color: rgba(2, 132, 199, 0.4);
+          background-color: rgba(2, 132, 199, 0.06);
+        }
+
+        .inst-mini-card.overdue {
+          border-color: rgba(239, 68, 68, 0.4);
+          background-color: rgba(239, 68, 68, 0.05);
+        }
+
+        .pactada-pay-btn {
+          background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+        }
+
+        .pactada-pay-btn:hover {
+          background: linear-gradient(135deg, #0369a1, #0284c7) !important;
         }
 
         .text-right {

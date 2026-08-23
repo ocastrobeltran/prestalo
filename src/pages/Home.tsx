@@ -32,7 +32,7 @@ export const Home: React.FC<HomeProps> = ({
   const activeLoansCount = loans.filter(l => l.status === 'active').length;
   
   // Calcular tasa de recuperación: cuotas pagadas / cuotas totales
-  const paidInstallments = installments.filter(i => i.status === 'paid');
+  const paidInstallments = installments.filter(i => i.status === 'paid' || i.amount <= 0);
   const totalInstallmentsCount = installments.length;
   const recoveryRate = totalInstallmentsCount > 0 
     ? (paidInstallments.length / totalInstallmentsCount) * 100 
@@ -45,7 +45,7 @@ export const Home: React.FC<HomeProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const next7DaysStr = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const upcomingPaymentsCount = installments.filter(
-    i => i.status === 'pending' && i.dueDate >= todayStr && i.dueDate <= next7DaysStr
+    i => (i.status === 'pending' || i.isPactada) && i.amount > 0 && i.dueDate >= todayStr && i.dueDate <= next7DaysStr
   ).length;
 
   const handleSaveCapital = (e: React.FormEvent) => {

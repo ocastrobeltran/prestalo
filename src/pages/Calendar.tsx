@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Installment, Client, Loan } from '../types';
-import { formatCurrency, isOverdue, getPaidBreakdownForInstallment } from '../services/loanCalculator';
+import { formatCurrency, getPaidBreakdownForInstallment, isInstallmentOverdue, getInstallmentEffectiveStatus, addMonths } from '../services/loanCalculator';
 import { Check, ChevronLeft, ChevronRight, MessageSquare, Sparkles } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 
@@ -79,11 +79,14 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
 
     // 2. Filtrar por estado
     if (filterStatus === 'pending') {
-      result = result.filter(i => i.status === 'pending');
+      result = result.filter(i => {
+        const eff = getInstallmentEffectiveStatus(i);
+        return eff === 'pending' || eff === 'pactada';
+      });
     } else if (filterStatus === 'overdue') {
-      result = result.filter(i => i.status === 'pending' && i.dueDate < todayStr);
+      result = result.filter(i => isInstallmentOverdue(i));
     } else if (filterStatus === 'paid') {
-      result = result.filter(i => i.status === 'paid');
+      result = result.filter(i => i.status === 'paid' || i.amount <= 0);
     }
 
     return result;
@@ -91,11 +94,11 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
 
   // Metricas del período actual de visualización
   const getPeriodMetrics = () => {
-    const todayStr = formatLocalDate(new Date());
     const selectedDateStr = formatLocalDate(selectedDate);
     let periodInstallments = installments;
 
     if (viewMode === 'hoy') {
+      const todayStr = formatLocalDate(new Date());
       periodInstallments = installments.filter(i => i.dueDate === todayStr);
     } else if (viewMode === '7d') {
       const sevenDaysLater = formatLocalDate(new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000));
@@ -107,8 +110,8 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
     }
 
     const total = periodInstallments.length;
-    const paid = periodInstallments.filter(i => i.status === 'paid').length;
-    const overdue = periodInstallments.filter(i => i.status === 'pending' && i.dueDate < todayStr).length;
+    const paid = periodInstallments.filter(i => i.status === 'paid' || i.amount <= 0).length;
+    const overdue = periodInstallments.filter(i => isInstallmentOverdue(i)).length;
     const pending = total - paid - overdue;
     const totalAmount = periodInstallments.reduce((acc, curr) => acc + curr.amount, 0);
 
@@ -336,10 +339,27 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
         ) : (
           <div className="installments-list-wrap">
             {filteredInstallmentsList.map((inst) => {
-              const isOverdueInst = inst.status === 'pending' && isOverdue(inst.dueDate);
               const loan = loans.find(l => l.id === inst.loanId);
               const breakdown = getPaidBreakdownForInstallment(inst, loan);
+              const effectiveStatus = getInstallmentEffectiveStatus(inst);
+              const isPaid = effectiveStatus === 'paid';
+              const isOverdueInst = effectiveStatus === 'overdue';
+              const isPactadaInst = effectiveStatus === 'pactada';
               
+              let badgeStatus: 'paid' | 'overdue' | 'pending' | 'active' = 'pending';
+              let badgeText = 'Pendiente';
+
+              if (isPaid) {
+                badgeStatus = 'paid';
+                badgeText = inst.isPactada ? 'Pagada (Pactada)' : 'Pagada';
+              } else if (isPactadaInst) {
+                badgeStatus = 'active';
+                badgeText = `Pactada (Plazo: ${inst.pactDeadline || addMonths(inst.dueDate, 1)})`;
+              } else if (isOverdueInst) {
+                badgeStatus = 'overdue';
+                badgeText = inst.isPactada ? 'Vencida (Plazo pactado expiró)' : 'Vencida';
+              }
+
               return (
                 <div key={inst.id} className="installment-cobro-card shadow-sm animate-slide-up">
                   <div className="cobro-header-row">
@@ -348,26 +368,32 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
                       <span className="cobro-client-name">{inst.clientName}</span>
                     </div>
                     <Badge 
-                      status={inst.status === 'paid' ? 'paid' : (isOverdueInst ? 'overdue' : 'pending')} 
-                      text={inst.status === 'paid' ? (inst.isPactada ? 'Pagada (Pactada)' : 'Pagada') : (isOverdueInst ? 'Vencida' : 'Pendiente')}
+                      status={badgeStatus as any} 
+                      text={badgeText}
                     />
                   </div>
 
                   <div className="cobro-financial-split">
                     <div className="cobro-val-row">
-                      <span className="lbl">{inst.status === 'paid' ? 'Monto Cobrado:' : 'Monto de Cuota:'}</span>
+                      <span className="lbl">{isPaid ? 'Monto Total Cobrado:' : (inst.paidAmount && inst.paidAmount > 0 ? 'Saldo Restante:' : 'Monto de Cuota:')}</span>
                       <span className="val primary">
-                        {inst.status === 'paid' ? formatCurrency(breakdown.paidTotal) : formatCurrency(inst.amount)}
+                        {isPaid ? formatCurrency(breakdown.paidTotal) : formatCurrency(inst.amount)}
                       </span>
                     </div>
+                    {inst.paidAmount && inst.paidAmount > 0 && !isPaid && (
+                      <div className="cobro-details-row text-xs" style={{ color: 'var(--success)', fontWeight: 600 }}>
+                        <span>Abonado hasta hoy: {formatCurrency(inst.paidAmount)}</span>
+                        <span>Total cuota: {formatCurrency(inst.amount + inst.paidAmount)}</span>
+                      </div>
+                    )}
                     <div className="cobro-details-row">
-                      <span>Capital: {formatCurrency(inst.status === 'paid' ? breakdown.paidCapital : inst.capitalAmount)}</span>
-                      <span>Interés: {formatCurrency(inst.status === 'paid' ? breakdown.paidInterest : inst.interestAmount)}</span>
+                      <span>Capital restante: {formatCurrency(isPaid ? breakdown.paidCapital : inst.capitalAmount)}</span>
+                      <span>Interés restante: {formatCurrency(isPaid ? breakdown.paidInterest : inst.interestAmount)}</span>
                     </div>
-                    {inst.isPactada && inst.waivedAmount && inst.waivedAmount > 0 && (
-                      <div className="cobro-details-row text-xs" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                        <span>Acuerdo: Cuota pactada cumplida</span>
-                        <span>Condonado: {formatCurrency(inst.waivedAmount)}</span>
+                    {isPactadaInst && (
+                      <div className="cobro-details-row text-xs" style={{ color: '#0284c7', fontWeight: 600 }}>
+                        <span>Acuerdo de pago pactado</span>
+                        <span>Límite sin mora: {inst.pactDeadline || addMonths(inst.dueDate, 1)}</span>
                       </div>
                     )}
                     <div className="cobro-date-row">
@@ -376,14 +402,14 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
                     </div>
                   </div>
 
-                  {inst.status === 'pending' && (
+                  {!isPaid && (
                     <div className="cobro-actions-row">
                       <button 
                         className="cobro-action-btn pay"
                         onClick={() => handleMarkAsPaid(inst.id)}
                       >
                         <Check size={16} />
-                        Marcar como pagada
+                        {inst.paidAmount && inst.paidAmount > 0 ? 'Abonar / Saldar' : 'Abonar / Pagar'}
                       </button>
                       <button 
                         className="cobro-action-btn whatsapp"

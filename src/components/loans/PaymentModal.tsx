@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Installment } from '../../types';
-import { formatCurrency } from '../../services/loanCalculator';
-import { X, DollarSign, Calendar, User, CheckCircle } from 'lucide-react';
+import { formatCurrency, addMonths } from '../../services/loanCalculator';
+import { X, DollarSign, Calendar, User, CheckCircle, Clock } from 'lucide-react';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   useEffect(() => {
     if (installment) {
       setPaymentAmount(installment.amount);
-      setIsPactada(false);
+      setIsPactada(!!installment.isPactada);
       setError(null);
     }
   }, [installment]);
@@ -31,6 +31,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   if (!isOpen || !installment) return null;
 
   const isPartial = paymentAmount !== '' && Number(paymentAmount) < installment.amount;
+  const deadlineDate = installment.pactDeadline || addMonths(installment.dueDate, 1);
+  const totalOriginalCuota = (installment.paidAmount || 0) + installment.amount;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +41,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       return;
     }
 
-    onConfirmPayment(installment.id, Number(paymentAmount), isPartial && isPactada);
+    onConfirmPayment(installment.id, Number(paymentAmount), isPartial ? (isPactada || !!installment.isPactada) : false);
     onClose();
   };
 
@@ -71,17 +73,35 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <span className="summary-val font-semibold">{installment.clientName}</span>
             </div>
             <div className="summary-row">
-              <span className="summary-lbl"><Calendar size={14} /> Vencimiento:</span>
+              <span className="summary-lbl"><Calendar size={14} /> Vencimiento Original:</span>
               <span className="summary-val">{installment.dueDate}</span>
             </div>
+            {installment.paidAmount && installment.paidAmount > 0 && (
+              <>
+                <div className="summary-row">
+                  <span className="summary-lbl">Valor Total Cuota:</span>
+                  <span className="summary-val font-semibold">{formatCurrency(totalOriginalCuota)}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="summary-lbl">Total Ya Abonado:</span>
+                  <span className="summary-val text-success font-semibold">{formatCurrency(installment.paidAmount)}</span>
+                </div>
+              </>
+            )}
             <div className="summary-row border-top">
-              <span className="summary-lbl font-semibold">Valor Sugerido/Pendiente:</span>
+              <span className="summary-lbl font-semibold">Saldo Pendiente por Saldar:</span>
               <span className="summary-val text-primary font-bold">{formatCurrency(installment.amount)}</span>
             </div>
+            {installment.isPactada && (
+              <div className="pact-active-pill">
+                <Clock size={13} />
+                <span>Cuota en acuerdo pactado · Plazo límite: <strong>{deadlineDate}</strong></span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
-            <label htmlFor="paymentAmount">Monto a Abonar / Pagar ($)</label>
+            <label htmlFor="paymentAmount">Monto a Abonar ($)</label>
             <div className="input-with-action">
               <input
                 id="paymentAmount"
@@ -104,33 +124,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 type="button" 
                 className="full-pay-quick-btn"
                 onClick={handleFullPaymentClick}
-                title="Pagar cuota completa"
+                title="Saldar total de la cuota"
               >
-                Cuota Completa
+                Saldar Total
               </button>
             </div>
             
-            {/* Opción para Pactar Cuota cuando el monto es menor */}
+            {/* Opción para Pactar Cuota cuando el abono es parcial */}
             {isPartial && (
-              <div className={`pacto-card ${isPactada ? 'active' : ''} animate-slide-up`}>
+              <div className={`pacto-card ${isPactada || installment.isPactada ? 'active' : ''} animate-slide-up`}>
                 <label className="pacto-checkbox-label">
                   <input
                     type="checkbox"
-                    checked={isPactada}
+                    checked={isPactada || !!installment.isPactada}
                     onChange={(e) => setIsPactada(e.target.checked)}
                     className="pacto-checkbox"
                   />
                   <div className="pacto-text-wrap">
                     <span className="pacto-title">
-                      🤝 Pactar cuota como cumplida
+                      🤝 Pactar cuota (Plazo de 1 mes sin entrar en mora)
                     </span>
                     <span className="pacto-desc">
-                      {isPactada ? (
-                        <strong>
-                          ✨ Se acepta este pago de {formatCurrency(Number(paymentAmount))} como liquidación total de la cuota. NO quedará saldo pendiente ni entrará en mora.
-                        </strong>
+                      {isPactada || installment.isPactada ? (
+                        <span>
+                          ✨ Al abonar <strong>{formatCurrency(Number(paymentAmount))}</strong>, el cliente tendrá un plazo de 1 mes (hasta el <strong>{deadlineDate}</strong>) para realizar <strong>abonos libres</strong> y saldar el restante de <strong>{formatCurrency(installment.amount - Number(paymentAmount))}</strong> sin que la cuota entre en mora. Si llega esa fecha sin completarse, pasará automáticamente a <strong>Vencida</strong>.
+                        </span>
                       ) : (
-                        `Marque esta casilla si acordó con el cliente recibir ${formatCurrency(Number(paymentAmount))} dando la cuota por pagada (sin generar mora por el faltante).`
+                        `Marque para acordar un plazo de 1 mes (hasta el ${deadlineDate}) para saldar el saldo restante de ${formatCurrency(installment.amount - Number(paymentAmount))} mediante abonos libres sin generar mora inmediata.`
                       )}
                     </span>
                   </div>
@@ -139,16 +159,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
 
             <small className="help-text">
-              {isPartial && !isPactada ? (
+              {isPartial && !isPactada && !installment.isPactada ? (
                 <span className="text-warning">
-                  ⚠️ Abono parcial estándar: La cuota mantendrá un saldo pendiente de {formatCurrency(installment.amount - Number(paymentAmount))} que vencerá en la fecha pactada.
+                  ⚠️ Abono parcial: Quedará un saldo pendiente de {formatCurrency(installment.amount - Number(paymentAmount))}. Si la fecha de vencimiento ya pasó, entrará en mora a menos que la marque como pactada.
                 </span>
               ) : paymentAmount !== '' && Number(paymentAmount) > installment.amount ? (
                 <span className="text-success">
-                  ✨ Abono mayor: Cubre la cuota actual y el excedente se abonará al préstamo.
+                  ✨ Abono mayor: Cubre el saldo total y el excedente de {formatCurrency(Number(paymentAmount) - installment.amount)} se aplicará a la siguiente cuota.
                 </span>
               ) : !isPartial ? (
-                'Puedes modificar este valor si el cliente realiza un abono parcial o mayor.'
+                'Ingresa el monto del abono. Puedes ingresar cualquier valor libre.'
               ) : null}
             </small>
           </div>
@@ -159,9 +179,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className={`btn-primary ${isPactada ? 'pactada-btn' : 'success-btn'}`}>
+            <button type="submit" className={`btn-primary ${(isPactada || installment.isPactada) && isPartial ? 'pactada-btn' : 'success-btn'}`}>
               <CheckCircle size={18} />
-              {isPactada ? 'Confirmar Pago Pactado' : 'Confirmar Pago'} ({formatCurrency(Number(paymentAmount) || 0)})
+              {(isPactada || installment.isPactada) && isPartial ? 'Confirmar Abono Pactado' : 'Confirmar Pago'} ({formatCurrency(Number(paymentAmount) || 0)})
             </button>
           </div>
         </form>
@@ -431,6 +451,19 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         .pactada-btn:hover {
           opacity: 0.95;
+        }
+
+        .pact-active-pill {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 8px;
+          background-color: rgba(14, 165, 233, 0.1);
+          border: 1px solid rgba(14, 165, 233, 0.25);
+          color: var(--primary);
+          font-size: 11.5px;
+          margin-top: 4px;
         }
 
         .success-btn {

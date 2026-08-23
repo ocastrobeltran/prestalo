@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS installments (
     paid_capital_amount NUMERIC DEFAULT 0,
     paid_interest_amount NUMERIC DEFAULT 0,
     is_pactada BOOLEAN DEFAULT false,
+    pact_date TEXT,
+    pact_deadline TEXT,
     waived_amount NUMERIC DEFAULT 0,
     due_date TEXT NOT NULL,
     paid_date TEXT,

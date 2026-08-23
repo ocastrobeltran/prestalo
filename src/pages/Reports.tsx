@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { formatCurrency, calculateFinancialSummary, getPaidBreakdownForInstallment } from '../services/loanCalculator';
+import { formatCurrency, calculateFinancialSummary, getPaidBreakdownForInstallment, isInstallmentOverdue } from '../services/loanCalculator';
 import { BarChart3, TrendingUp, Users, Printer } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 
@@ -124,12 +124,12 @@ export const Reports: React.FC<ReportsProps> = ({
   const enCalleOverall = summaryOverall.enCalle;
 
   // Tasa de recuperación del período
-  const paidCount = filteredInstallments.filter(i => i.status === 'paid').length;
+  const paidCount = filteredInstallments.filter(i => i.status === 'paid' || i.amount <= 0).length;
   const totalCount = filteredInstallments.length;
   const recoveryRate = totalCount > 0 ? (paidCount / totalCount) * 100 : 0;
 
-  // Tasa de mora del período
-  const overdueCount = filteredInstallments.filter(i => i.status === 'pending' && i.dueDate < todayStr).length;
+  // Tasa de mora del período (respeta plazo de cuotas pactadas)
+  const overdueCount = filteredInstallments.filter(i => isInstallmentOverdue(i)).length;
   const overdueRate = totalCount > 0 ? (overdueCount / totalCount) * 100 : 0;
 
   // Margen de ganancia y tasa promedio

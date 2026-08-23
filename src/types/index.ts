@@ -36,11 +36,13 @@ export interface Installment {
   paidAmount?: number;         // Monto ya cobrado de esta cuota (incluye abonos parciales)
   paidCapitalAmount?: number;  // Capital ya cobrado de esta cuota
   paidInterestAmount?: number; // Interés ya cobrado de esta cuota
-  dueDate: string;             // Fecha de vencimiento (YYYY-MM-DD)
-  paidDate: string | null;     // Fecha de pago (null si no está pagada)
+  dueDate: string;             // Fecha de vencimiento original (YYYY-MM-DD)
+  paidDate: string | null;     // Fecha de pago final (null si aún tiene saldo pendiente)
   status: 'pending' | 'paid' | 'overdue';
-  isPactada?: boolean;         // Si la cuota fue cerrada con acuerdo/pacto de abono menor
-  waivedAmount?: number;       // Monto condonado/pactado en la cuota
+  isPactada?: boolean;         // Si la cuota tiene acuerdo/pacto de abono parcial
+  pactDate?: string;           // Fecha en que se realizó el pacto (YYYY-MM-DD)
+  pactDeadline?: string;       // Fecha límite del mes pactado (YYYY-MM-DD)
+  waivedAmount?: number;       // Monto condonado/pactado en la cuota (si aplica)
 }
 
 export interface CapitalBox {

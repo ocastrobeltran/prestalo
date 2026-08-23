@@ -78,7 +78,6 @@ export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): 
  * Calcula el resumen financiero de forma precisa respetando abonos y pagos cobrados
  */
 export function calculateFinancialSummary(loans: Loan[], installments: Installment[]): FinancialSummary {
-  const todayStr = new Date().toISOString().split('T')[0];
   const loansMap = new Map<string, Loan>();
   loans.forEach(l => loansMap.set(l.id, l));
 
@@ -106,7 +105,7 @@ export function calculateFinancialSummary(loans: Loan[], installments: Installme
       pendingCapital += inst.capitalAmount;
       pendingInterest += inst.interestAmount;
 
-      const isInstOverdue = inst.status === 'overdue' || inst.dueDate < todayStr;
+      const isInstOverdue = isInstallmentOverdue(inst);
       if (isInstOverdue) {
         overdueCapital += inst.capitalAmount;
         overdueInterest += inst.interestAmount;
@@ -274,5 +273,33 @@ export function formatCurrency(value: number): string {
 export function isOverdue(dueDateStr: string): boolean {
   const todayStr = new Date().toISOString().split('T')[0];
   return dueDateStr < todayStr;
+}
+
+/**
+ * Determina si una cuota específica está vencida considerando el plazo de 1 mes de cuotas pactadas
+ */
+export function isInstallmentOverdue(inst: Installment): boolean {
+  if (inst.amount <= 0 || (inst.status === 'paid' && !inst.isPactada)) return false;
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (inst.isPactada) {
+    const deadline = inst.pactDeadline || addMonths(inst.dueDate, 1);
+    return todayStr > deadline;
+  }
+  return inst.status === 'overdue' || inst.dueDate < todayStr;
+}
+
+/**
+ * Obtiene el estado efectivo de una cuota: 'paid', 'pactada' (acuerdo vigente sin mora), 'overdue' (mora) o 'pending'
+ */
+export function getInstallmentEffectiveStatus(inst: Installment): 'pending' | 'paid' | 'overdue' | 'pactada' {
+  if (inst.amount <= 0 || (inst.status === 'paid' && !inst.isPactada)) return 'paid';
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (inst.isPactada) {
+    const deadline = inst.pactDeadline || addMonths(inst.dueDate, 1);
+    if (todayStr > deadline) return 'overdue';
+    return 'pactada';
+  }
+  if (inst.status === 'overdue' || inst.dueDate < todayStr) return 'overdue';
+  return 'pending';
 }
 

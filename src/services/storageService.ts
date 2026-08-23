@@ -1,5 +1,5 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { generateInstallments } from './loanCalculator';
+import { generateInstallments, addMonths } from './loanCalculator';
 import { supabaseSyncService, computeCapitalBox } from './supabaseSyncService';
 
 const CLIENTS_KEY = 'prestalo_clients';
@@ -160,10 +160,90 @@ export const storageService = {
   },
 
   // INSTALLMENTS (CUOTAS)
+  normalizePactadaInstallments(inputInstallments?: Installment[], inputLoans?: Loan[]): Installment[] {
+    const loans = inputLoans || this.getLoans();
+    let installments = inputInstallments;
+    let fromStorage = false;
+
+    if (!installments) {
+      const data = localStorage.getItem(INSTALLMENTS_KEY);
+      installments = data ? JSON.parse(data) : [];
+      fromStorage = true;
+    }
+
+    if (!installments || installments.length === 0) return [];
+
+    let hasChanges = false;
+    const loansMap = new Map<string, Loan>();
+    loans.forEach(l => loansMap.set(l.id, l));
+    const modifiedInstallments: Installment[] = [];
+
+    installments.forEach(inst => {
+      if (inst.isPactada) {
+        const loan = loansMap.get(inst.loanId);
+        const expectedTotal = (loan && loan.installmentsCount > 0)
+          ? Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100
+          : ((inst.paidAmount || 0) + inst.amount + (inst.waivedAmount || 0));
+
+        const currentPaid = (inst.paidAmount !== undefined && inst.paidAmount > 0)
+          ? inst.paidAmount
+          : Math.max(0, expectedTotal - (inst.waivedAmount || 0));
+
+        const pendingBalance = Math.max(0, expectedTotal - currentPaid);
+
+        // Si la cuota tenía saldo pendiente pero estaba guardada con amount <= 0 o status === 'paid'
+        if (pendingBalance > 0 && (inst.amount <= 0 || inst.status === 'paid')) {
+          inst.amount = pendingBalance;
+          const ratio = pendingBalance / (expectedTotal || 1);
+          const loanCapPerInst = loan ? loan.capital / loan.installmentsCount : pendingBalance * 0.8;
+          inst.capitalAmount = Math.round(loanCapPerInst * ratio);
+          inst.interestAmount = pendingBalance - inst.capitalAmount;
+          inst.paidAmount = currentPaid;
+          inst.paidCapitalAmount = Math.round(loanCapPerInst) - inst.capitalAmount;
+          inst.paidInterestAmount = currentPaid - (inst.paidCapitalAmount || 0);
+          inst.status = 'pending';
+          inst.paidDate = null;
+          if (!inst.pactDeadline) {
+            inst.pactDeadline = addMonths(inst.dueDate, 1);
+          }
+          if (!inst.pactDate) {
+            inst.pactDate = inst.dueDate;
+          }
+          hasChanges = true;
+          modifiedInstallments.push(inst);
+
+          // Reactivar préstamo si estaba completed
+          if (loan && loan.status === 'completed') {
+            loan.status = 'active';
+            const loanIdx = loans.findIndex(l => l.id === loan.id);
+            if (loanIdx !== -1) loans[loanIdx] = loan;
+            localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
+          }
+        }
+      }
+    });
+
+    if (hasChanges && fromStorage) {
+      localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
+      if (modifiedInstallments.length > 0) {
+        supabaseSyncService.syncUpPayment(modifiedInstallments, loans[0], {
+          id: 'auto_norm',
+          amount: 0,
+          type: 'installment_payment',
+          description: 'Normalización de cuota pactada',
+          date: new Date().toISOString()
+        }, this.getCapitalBox()).catch(() => {});
+      }
+    }
+
+    return installments;
+  },
+
   getInstallments(): Installment[] {
     this.initializeData();
     const data = localStorage.getItem(INSTALLMENTS_KEY);
-    return data ? JSON.parse(data) : [];
+    const installments: Installment[] = data ? JSON.parse(data) : [];
+    return this.normalizePactadaInstallments(installments);
   },
 
   payInstallment(installmentId: string, customAmount?: number, isPactada?: boolean): Installment {
@@ -172,7 +252,7 @@ export const storageService = {
     if (idx === -1) throw new Error('Cuota no encontrada');
     
     const installment = installments[idx];
-    if (installment.status === 'paid') return installment;
+    if (installment.amount <= 0 && installment.status === 'paid' && !installment.isPactada) return installment;
     
     const amountToPay = (customAmount !== undefined && customAmount > 0) ? customAmount : installment.amount;
     const todayStr = new Date().toISOString().split('T')[0];
@@ -181,43 +261,37 @@ export const storageService = {
     const affectedInstallments: Installment[] = [];
 
     if (amountToPay < installment.amount) {
-      if (isPactada) {
-        // Cuota Pactada (Abono menor acordado y cuota dada por cumplida/cerrada sin mora)
-        const ratio = amountToPay / installment.amount;
-        const paidCapital = Math.round(installment.capitalAmount * ratio);
-        const paidInterest = amountToPay - paidCapital;
-        const waived = installment.amount - amountToPay;
+      // Abono Parcial o Abono Pactado
+      const ratio = amountToPay / installment.amount;
+      const paidCapital = Math.round(installment.capitalAmount * ratio);
+      const paidInterest = amountToPay - paidCapital;
 
-        installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
-        installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
-        installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+      installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
+      installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
+      installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
+
+      // Reducir la cuota actual manteniendo el saldo pendiente para permitir abonos libres posteriores
+      installment.amount -= amountToPay;
+      installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
+      installment.interestAmount = Math.max(0, installment.interestAmount - paidInterest);
+
+      if (isPactada || installment.isPactada) {
         installment.isPactada = true;
-        installment.waivedAmount = (installment.waivedAmount ?? 0) + waived;
+        if (!installment.pactDate) {
+          installment.pactDate = todayStr;
+        }
+        if (!installment.pactDeadline) {
+          installment.pactDeadline = addMonths(installment.dueDate, 1);
+        }
+      }
 
-        installment.amount = 0;
-        installment.capitalAmount = 0;
-        installment.interestAmount = 0;
+      if (installment.amount <= 0) {
         installment.status = 'paid';
         installment.paidDate = todayStr;
       } else {
-        // Abono Parcial Estándar: calcular proporciones de capital e interés pagados y mantener saldo restante
-        const ratio = amountToPay / installment.amount;
-        const paidCapital = Math.round(installment.capitalAmount * ratio);
-        const paidInterest = amountToPay - paidCapital;
-
-        installment.paidAmount = (installment.paidAmount ?? 0) + amountToPay;
-        installment.paidCapitalAmount = (installment.paidCapitalAmount ?? 0) + paidCapital;
-        installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + paidInterest;
-
-        // Reducir la cuota actual con el saldo que falta por pagar
-        installment.amount -= amountToPay;
-        installment.capitalAmount = Math.max(0, installment.capitalAmount - paidCapital);
-        installment.interestAmount = Math.max(0, installment.interestAmount - paidInterest);
-
-        if (installment.amount <= 0) {
-          installment.status = 'paid';
-          installment.paidDate = todayStr;
-        }
+        // Mantiene estado pending (o pactada con plazo de 1 mes antes de mora)
+        installment.status = 'pending';
+        installment.paidDate = null;
       }
     } else {
       // Pago Completo o Abono Mayor
