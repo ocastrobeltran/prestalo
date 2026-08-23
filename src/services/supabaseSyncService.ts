@@ -274,48 +274,30 @@ export const supabaseSyncService = {
       // Mapear datos descargados
       const clients = (clientsData || []).map(fromDbClient);
       const loans = (loansData || []).map(fromDbLoan);
-      const installments = (instData || []).map(fromDbInstallment);
+      const rawInstallments = (instData || []).map(fromDbInstallment);
       const transactions = (txData || []).map(fromDbTransaction);
 
-      // Normalizar cuotas pactadas que hayan quedado con amount: 0 o status: 'paid'
       const loansMap = new Map<string, Loan>();
       loans.forEach(l => loansMap.set(l.id, l));
 
-      installments.forEach(inst => {
-        if (inst.isPactada) {
-          const loan = loansMap.get(inst.loanId);
-          const expectedTotal = (loan && loan.installmentsCount > 0)
-            ? Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100
-            : ((inst.paidAmount || 0) + inst.amount + (inst.waivedAmount || 0));
+      // Asegurar que cuotas descargadas de esquemas base tengan su desglose coherente
+      const installments = rawInstallments.map(inst => {
+        const loan = loansMap.get(inst.loanId);
+        const breakdown = getPaidBreakdownForInstallment(inst, loan);
+        const origTotal = (loan && loan.installmentsCount > 0)
+          ? Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100
+          : inst.amount;
 
-          const currentPaid = (inst.paidAmount !== undefined && inst.paidAmount > 0)
-            ? inst.paidAmount
-            : Math.max(0, expectedTotal - (inst.waivedAmount || 0));
+        const isPartialAbono = inst.status !== 'paid' && inst.amount < origTotal && inst.amount >= 0;
 
-          const pendingBalance = Math.max(0, expectedTotal - currentPaid);
-
-          if (pendingBalance > 0 && (inst.amount <= 0 || inst.status === 'paid')) {
-            inst.amount = pendingBalance;
-            const ratio = pendingBalance / (expectedTotal || 1);
-            const loanCapPerInst = loan ? loan.capital / loan.installmentsCount : pendingBalance * 0.8;
-            inst.capitalAmount = Math.round(loanCapPerInst * ratio);
-            inst.interestAmount = pendingBalance - inst.capitalAmount;
-            inst.paidAmount = currentPaid;
-            inst.paidCapitalAmount = Math.round(loanCapPerInst) - inst.capitalAmount;
-            inst.paidInterestAmount = currentPaid - (inst.paidCapitalAmount || 0);
-            inst.status = 'pending';
-            inst.paidDate = null;
-            if (!inst.pactDeadline) {
-              inst.pactDeadline = addMonths(inst.dueDate, 1);
-            }
-            if (!inst.pactDate) {
-              inst.pactDate = inst.dueDate;
-            }
-            if (loan && loan.status === 'completed') {
-              loan.status = 'active';
-            }
-          }
-        }
+        return {
+          ...inst,
+          paidAmount: inst.paidAmount !== undefined ? inst.paidAmount : breakdown.paidTotal,
+          paidCapitalAmount: inst.paidCapitalAmount !== undefined ? inst.paidCapitalAmount : breakdown.paidCapital,
+          paidInterestAmount: inst.paidInterestAmount !== undefined ? inst.paidInterestAmount : breakdown.paidInterest,
+          isPactada: inst.isPactada || isPartialAbono,
+          pactDeadline: inst.pactDeadline || (isPartialAbono ? addMonths(inst.dueDate, 1) : undefined)
+        };
       });
 
       const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>(CAPITAL_KEY, defaultBox);

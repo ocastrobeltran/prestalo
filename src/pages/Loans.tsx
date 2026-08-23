@@ -223,7 +223,7 @@ export const Loans: React.FC<LoansProps> = ({
                                 </span>
                               )}
                               <span className="inst-amount font-bold">
-                                {isPaid ? formatCurrency(paidVal) : `Resta: ${formatCurrency(inst.amount)}`}
+                                {isPaid ? formatCurrency(paidVal) : (inst.paidAmount && inst.paidAmount > 0 ? `Resta: ${formatCurrency(inst.amount)}` : formatCurrency(inst.amount))}
                               </span>
                             </div>
                             {isPaid ? (

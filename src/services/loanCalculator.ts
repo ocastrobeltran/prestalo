@@ -27,13 +27,13 @@ export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): 
   if ((inst.paidCapitalAmount && inst.paidCapitalAmount > 0) || (inst.paidInterestAmount && inst.paidInterestAmount > 0)) {
     const paidCap = inst.paidCapitalAmount || 0;
     const paidInt = inst.paidInterestAmount || 0;
-    const paidTot = inst.paidAmount || (paidCap + paidInt);
+    const paidTot = (inst.paidAmount !== undefined && inst.paidAmount > 0) ? inst.paidAmount : (paidCap + paidInt);
     return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
   }
 
-  // 2. Si se tiene el paidAmount explícito (abono parcial registrado en la cuota)
-  if (inst.paidAmount && inst.paidAmount > 0) {
-    const ratio = loan && loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
+  // 2. Si se tiene el paidAmount explícito registrado
+  if (inst.paidAmount !== undefined && inst.paidAmount > 0) {
+    const ratio = loan && loan.totalToPay > 0 ? loan.capital / loan.totalToPay : 0.8;
     const paidCap = Math.round(inst.paidAmount * ratio);
     const paidInt = inst.paidAmount - paidCap;
     return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: inst.paidAmount };
@@ -41,32 +41,25 @@ export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): 
 
   // 3. Si la cuota está completamente pagada (status === 'paid')
   if (inst.status === 'paid') {
-    let paidCap = inst.capitalAmount;
-    let paidInt = inst.interestAmount;
-    
-    // Si al pagarse el capitalAmount fue reseteado a 0, recalcular usando las condiciones del préstamo
-    if ((paidCap === 0 && paidInt === 0) && loan && loan.installmentsCount > 0) {
-      if (inst.isPactada && inst.paidAmount) {
-        const ratio = loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
-        paidCap = Math.round(inst.paidAmount * ratio);
-        paidInt = inst.paidAmount - paidCap;
-      } else {
-        paidCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
-        paidInt = Math.round(((loan.capital * loan.interestRate / 100) / loan.installmentsCount) * 100) / 100;
-      }
+    if (loan && loan.installmentsCount > 0) {
+      const origCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
+      const origTotal = Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100;
+      const origInt = Math.max(0, origTotal - origCap);
+      return { paidCapital: origCap, paidInterest: origInt, paidTotal: origTotal };
     }
-    const paidTot = inst.paidAmount || (paidCap + paidInt);
-    return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
+    const paidCap = inst.capitalAmount || 0;
+    const paidInt = inst.interestAmount || 0;
+    return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidCap + paidInt };
   }
 
-  // 4. Si la cuota es 'pending' u 'overdue' pero se realizó un abono parcial (reducido el amount)
+  // 4. Si la cuota es pending/overdue y viene de esquema base Supabase con saldo reducido (amount < origTotal)
   if (loan && loan.installmentsCount > 0) {
     const origTotal = Math.round((loan.totalToPay / loan.installmentsCount) * 100) / 100;
+    const origCap = Math.round((loan.capital / loan.installmentsCount) * 100) / 100;
     if (inst.amount < origTotal && inst.amount >= 0) {
-      const paidTot = Math.max(0, origTotal - inst.amount);
-      const ratio = loan.totalToPay > 0 ? loan.capital / loan.totalToPay : (100 / 120);
-      const paidCap = Math.round(paidTot * ratio);
-      const paidInt = paidTot - paidCap;
+      const paidTot = origTotal - inst.amount;
+      const paidCap = Math.max(0, origCap - inst.capitalAmount);
+      const paidInt = Math.max(0, paidTot - paidCap);
       return { paidCapital: paidCap, paidInterest: paidInt, paidTotal: paidTot };
     }
   }
