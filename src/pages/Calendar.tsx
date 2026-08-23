@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import type { Installment, Client } from '../types';
-import { formatCurrency, isOverdue } from '../services/loanCalculator';
+import type { Installment, Client, Loan } from '../types';
+import { formatCurrency, isOverdue, getPaidBreakdownForInstallment } from '../services/loanCalculator';
 import { Check, ChevronLeft, ChevronRight, MessageSquare, Sparkles } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 
 interface CalendarProps {
   installments: Installment[];
   clients: Client[];
+  loans?: Loan[];
   onPayInstallment: (installmentId: string) => void;
 }
 
 type CalendarViewMode = 'hoy' | 'mes' | '7d';
 type FilterStatus = 'all' | 'pending' | 'overdue' | 'paid';
 
-export const Calendar: React.FC<CalendarProps> = ({ installments, clients, onPayInstallment }) => {
+export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans = [], onPayInstallment }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('mes');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   
@@ -336,6 +337,8 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
           <div className="installments-list-wrap">
             {filteredInstallmentsList.map((inst) => {
               const isOverdueInst = inst.status === 'pending' && isOverdue(inst.dueDate);
+              const loan = loans.find(l => l.id === inst.loanId);
+              const breakdown = getPaidBreakdownForInstallment(inst, loan);
               
               return (
                 <div key={inst.id} className="installment-cobro-card shadow-sm animate-slide-up">
@@ -354,12 +357,12 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
                     <div className="cobro-val-row">
                       <span className="lbl">{inst.status === 'paid' ? 'Monto Cobrado:' : 'Monto de Cuota:'}</span>
                       <span className="val primary">
-                        {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
+                        {inst.status === 'paid' ? formatCurrency(breakdown.paidTotal) : formatCurrency(inst.amount)}
                       </span>
                     </div>
                     <div className="cobro-details-row">
-                      <span>Capital: {formatCurrency(inst.status === 'paid' ? (inst.paidCapitalAmount || inst.capitalAmount) : inst.capitalAmount)}</span>
-                      <span>Interés: {formatCurrency(inst.status === 'paid' ? (inst.paidInterestAmount || inst.interestAmount) : inst.interestAmount)}</span>
+                      <span>Capital: {formatCurrency(inst.status === 'paid' ? breakdown.paidCapital : inst.capitalAmount)}</span>
+                      <span>Interés: {formatCurrency(inst.status === 'paid' ? breakdown.paidInterest : inst.interestAmount)}</span>
                     </div>
                     {inst.isPactada && inst.waivedAmount && inst.waivedAmount > 0 && (
                       <div className="cobro-details-row text-xs" style={{ color: 'var(--primary)', fontWeight: 600 }}>

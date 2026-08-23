@@ -127,6 +127,35 @@ const toDbInstallment = (i: Installment) => ({
   status: i.status
 });
 
+const toBaseDbInstallment = (i: Installment) => ({
+  id: i.id,
+  loan_id: i.loanId,
+  client_id: i.clientId,
+  client_name: i.clientName,
+  number: i.number,
+  amount: i.amount,
+  capital_amount: i.capitalAmount,
+  interest_amount: i.interestAmount,
+  due_date: i.dueDate,
+  paid_date: i.paidDate || null,
+  status: i.status
+});
+
+const safeUpsertInstallments = async (installments: Installment[]): Promise<void> => {
+  if (installments.length === 0) return;
+  const fullRows = installments.map(toDbInstallment);
+  const { error } = await supabase.from('installments').upsert(fullRows);
+  if (error) {
+    console.warn('Upsert extendido de installments falló, reintentando con esquema base:', error.message);
+    const baseRows = installments.map(toBaseDbInstallment);
+    const { error: baseError } = await supabase.from('installments').upsert(baseRows);
+    if (baseError) {
+      console.error('Error definitivo al persistir cuotas en Supabase:', baseError);
+      throw baseError;
+    }
+  }
+};
+
 const fromDbInstallment = (row: any): Installment => ({
   id: row.id,
   loanId: row.loan_id,
@@ -275,15 +304,28 @@ export const supabaseSyncService = {
     try {
       const clients = getLocal<Client[]>(CLIENTS_KEY, []).map(toDbClient);
       const loans = getLocal<Loan[]>(LOANS_KEY, []).map(toDbLoan);
-      const installments = getLocal<Installment[]>(INSTALLMENTS_KEY, []).map(toDbInstallment);
+      const installments = getLocal<Installment[]>(INSTALLMENTS_KEY, []);
       const capitalBox = toDbCapitalBox(getLocal<CapitalBox>(CAPITAL_KEY, defaultBox));
       const transactions = getLocal<CapitalTransaction[]>(TRANSACTIONS_KEY, []).map(toDbTransaction);
 
-      if (clients.length > 0) await supabase.from('clients').upsert(clients);
-      if (loans.length > 0) await supabase.from('loans').upsert(loans);
-      if (installments.length > 0) await supabase.from('installments').upsert(installments);
-      await supabase.from('capital_box').upsert(capitalBox);
-      if (transactions.length > 0) await supabase.from('transactions').upsert(transactions);
+      if (clients.length > 0) {
+        const { error } = await supabase.from('clients').upsert(clients);
+        if (error) console.error('Error en push clients:', error);
+      }
+      if (loans.length > 0) {
+        const { error } = await supabase.from('loans').upsert(loans);
+        if (error) console.error('Error en push loans:', error);
+      }
+      if (installments.length > 0) {
+        await safeUpsertInstallments(installments);
+      }
+      const { error: boxErr } = await supabase.from('capital_box').upsert(capitalBox);
+      if (boxErr) console.error('Error en push capital_box:', boxErr);
+
+      if (transactions.length > 0) {
+        const { error: txErr } = await supabase.from('transactions').upsert(transactions);
+        if (txErr) console.error('Error en push transactions:', txErr);
+      }
 
       console.log('Sincronización inicial hacia Supabase completada.');
     } catch (err) {
@@ -296,7 +338,8 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('clients').upsert(toDbClient(client));
+      const { error } = await supabase.from('clients').upsert(toDbClient(client));
+      if (error) throw error;
       this.setStatus('synced');
     } catch (err) {
       console.error('Error syncUpClient:', err);
@@ -308,7 +351,8 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('clients').delete().eq('id', id);
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      if (error) throw error;
       this.setStatus('synced');
     } catch (err) {
       console.error('Error deleteRemoteClient:', err);
@@ -320,10 +364,17 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('loans').upsert(toDbLoan(loan));
-      await supabase.from('installments').upsert(installments.map(toDbInstallment));
-      await supabase.from('transactions').upsert(toDbTransaction(tx));
-      await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan));
+      if (loanErr) throw loanErr;
+
+      await safeUpsertInstallments(installments);
+
+      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+      if (txErr) throw txErr;
+
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      if (boxErr) throw boxErr;
+
       this.setStatus('synced');
     } catch (err) {
       console.error('Error syncUpLoanCreation:', err);
@@ -335,9 +386,17 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('loans').delete().eq('id', id);
-      if (tx) await supabase.from('transactions').upsert(toDbTransaction(tx));
-      if (box) await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const { error: loanErr } = await supabase.from('loans').delete().eq('id', id);
+      if (loanErr) throw loanErr;
+
+      if (tx) {
+        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+        if (txErr) throw txErr;
+      }
+      if (box) {
+        const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+        if (boxErr) throw boxErr;
+      }
       this.setStatus('synced');
     } catch (err) {
       console.error('Error deleteRemoteLoan:', err);
@@ -345,17 +404,25 @@ export const supabaseSyncService = {
     }
   },
 
-  async syncUpPayment(inst: Installment, loan: Loan, tx: CapitalTransaction, box: CapitalBox): Promise<void> {
+  async syncUpPayment(inst: Installment | Installment[], loan: Loan, tx: CapitalTransaction, box: CapitalBox): Promise<void> {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('installments').upsert(toDbInstallment(inst));
-      await supabase.from('loans').upsert(toDbLoan(loan));
-      await supabase.from('transactions').upsert(toDbTransaction(tx));
-      await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const installmentsList = Array.isArray(inst) ? inst : [inst];
+      await safeUpsertInstallments(installmentsList);
+
+      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan));
+      if (loanErr) throw loanErr;
+
+      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+      if (txErr) throw txErr;
+
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      if (boxErr) throw boxErr;
+
       this.setStatus('synced');
     } catch (err) {
-      console.error('Error syncUpPayment:', err);
+      console.error('Error syncUpPayment en Supabase:', err);
       this.setStatus('error');
     }
   },
@@ -364,8 +431,13 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      await supabase.from('capital_box').upsert(toDbCapitalBox(box));
-      if (tx) await supabase.from('transactions').upsert(toDbTransaction(tx));
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      if (boxErr) throw boxErr;
+
+      if (tx) {
+        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+        if (txErr) throw txErr;
+      }
       this.setStatus('synced');
     } catch (err) {
       console.error('Error syncUpCapitalBox:', err);

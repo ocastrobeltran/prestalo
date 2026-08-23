@@ -235,6 +235,7 @@ const App: React.FC = () => {
           <Calendar
             installments={installments}
             clients={clients}
+            loans={loans}
             onPayInstallment={(id) => {
               const inst = installments.find(i => i.id === id);
               if (inst) openPaymentModal(inst);

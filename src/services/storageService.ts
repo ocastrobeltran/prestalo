@@ -178,6 +178,8 @@ export const storageService = {
     const todayStr = new Date().toISOString().split('T')[0];
     const actualPaidAmount = amountToPay;
     
+    const affectedInstallments: Installment[] = [];
+
     if (amountToPay < installment.amount) {
       if (isPactada) {
         // Cuota Pactada (Abono menor acordado y cuota dada por cumplida/cerrada sin mora)
@@ -267,12 +269,14 @@ export const storageService = {
               nextInst.interestAmount = Math.max(0, nextInst.amount - nextInst.capitalAmount);
             }
             installments[nextInstIdx] = nextInst;
+            affectedInstallments.push(nextInst);
           }
         }
       }
     }
 
     installments[idx] = installment;
+    affectedInstallments.unshift(installment);
     localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
     
     // Registrar transacción con el monto abonado exacto
@@ -308,7 +312,7 @@ export const storageService = {
     const capitalBox = this.reconcileCapitalBox();
     
     if (updatedLoan) {
-      supabaseSyncService.syncUpPayment(installment, updatedLoan, tx, capitalBox);
+      supabaseSyncService.syncUpPayment(affectedInstallments, updatedLoan, tx, capitalBox);
     }
     
     return installment;

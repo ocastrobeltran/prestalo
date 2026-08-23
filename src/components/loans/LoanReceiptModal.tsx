@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal } from '../common/Modal';
 import type { Loan, Installment } from '../../types';
-import { formatCurrency } from '../../services/loanCalculator';
+import { formatCurrency, getPaidBreakdownForInstallment } from '../../services/loanCalculator';
 import { Printer, MessageSquare, Calendar } from 'lucide-react';
 import { Badge } from '../common/Badge';
 
@@ -40,10 +40,12 @@ export const LoanReceiptModal: React.FC<LoanReceiptModalProps> = ({ isOpen, onCl
 
 *Plan de Cuotas:*
 ${loanInstallments.map(i => {
+  const breakdown = getPaidBreakdownForInstallment(i, loan);
+  const paidVal = (i.paidAmount && i.paidAmount > 0) ? i.paidAmount : breakdown.paidTotal;
   const estado = i.status === 'paid' 
-    ? (i.isPactada ? `PAGADO PACTADO (${formatCurrency(i.paidAmount || i.amount)}) ✓` : 'PAGADO ✓')
+    ? (i.isPactada ? `PAGADO PACTADO (${formatCurrency(paidVal)}) ✓` : 'PAGADO ✓')
     : 'PENDIENTE';
-  const montoStr = i.status === 'paid' ? formatCurrency(i.paidAmount || i.amount) : formatCurrency(i.amount);
+  const montoStr = i.status === 'paid' ? formatCurrency(paidVal) : formatCurrency(i.amount);
   return `- Cuota #${i.number}: ${montoStr} [Vence: ${i.dueDate}] -> *${estado}*`;
 }).join('\n')}
 
@@ -121,24 +123,28 @@ Gracias por su confianza.`;
               <span className="text-right">Estado</span>
             </div>
             <div className="table-body">
-              {loanInstallments.map((inst) => (
-                <div key={inst.id} className="table-row">
-                  <span className="font-semibold">#{inst.number}</span>
-                  <span className="text-muted flex items-center gap-1">
-                    <Calendar size={12} />
-                    {inst.dueDate}
-                  </span>
-                  <span className="font-semibold text-right">
-                    {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
-                  </span>
-                  <span className="text-right">
-                    <Badge 
-                      status={inst.status} 
-                      text={inst.status === 'paid' ? (inst.isPactada ? 'Pactada' : 'Pagada') : 'Pendiente'} 
-                    />
-                  </span>
-                </div>
-              ))}
+              {loanInstallments.map((inst) => {
+                const breakdown = getPaidBreakdownForInstallment(inst, loan);
+                const paidVal = (inst.paidAmount && inst.paidAmount > 0) ? inst.paidAmount : breakdown.paidTotal;
+                return (
+                  <div key={inst.id} className="table-row">
+                    <span className="font-semibold">#{inst.number}</span>
+                    <span className="text-muted flex items-center gap-1">
+                      <Calendar size={12} />
+                      {inst.dueDate}
+                    </span>
+                    <span className="font-semibold text-right">
+                      {inst.status === 'paid' ? formatCurrency(paidVal) : formatCurrency(inst.amount)}
+                    </span>
+                    <span className="text-right">
+                      <Badge 
+                        status={inst.status} 
+                        text={inst.status === 'paid' ? (inst.isPactada ? 'Pactada' : 'Pagada') : 'Pendiente'} 
+                      />
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

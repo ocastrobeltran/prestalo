@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Loan, Installment } from '../types';
-import { formatCurrency } from '../services/loanCalculator';
+import { formatCurrency, getPaidBreakdownForInstallment } from '../services/loanCalculator';
 import { Search, FilePlus, FileText, Trash2, ChevronDown, ChevronUp, DollarSign, CheckCircle2 } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { Badge } from '../components/common/Badge';
@@ -192,26 +192,29 @@ export const Loans: React.FC<LoansProps> = ({
                       Desglose de Cuotas ({paid}/{total} pagadas)
                     </div>
                     <div className="loans-inst-grid">
-                      {installments.filter(i => i.loanId === loan.id).map(inst => (
-                        <div key={inst.id} className={`inst-mini-card ${inst.status} ${inst.isPactada ? 'pactada' : ''}`}>
-                          <div className="inst-mini-info">
-                            <span className="inst-num">Cuota #{inst.number}</span>
-                            <span className="inst-date">{inst.dueDate}</span>
-                            <span className="inst-amount font-bold">
-                              {inst.status === 'paid' ? formatCurrency(inst.paidAmount || inst.amount) : formatCurrency(inst.amount)}
-                            </span>
-                          </div>
-                          {inst.status === 'paid' ? (
-                            inst.isPactada ? (
-                              <span className="inst-paid-badge pactada" title={`Pactada con abono de ${formatCurrency(inst.paidAmount || 0)}`}>
-                                <CheckCircle2 size={12} /> Pactada
+                      {installments.filter(i => i.loanId === loan.id).map(inst => {
+                        const breakdown = getPaidBreakdownForInstallment(inst, loan);
+                        const paidVal = (inst.paidAmount && inst.paidAmount > 0) ? inst.paidAmount : breakdown.paidTotal;
+                        return (
+                          <div key={inst.id} className={`inst-mini-card ${inst.status} ${inst.isPactada ? 'pactada' : ''}`}>
+                            <div className="inst-mini-info">
+                              <span className="inst-num">Cuota #{inst.number}</span>
+                              <span className="inst-date">{inst.dueDate}</span>
+                              <span className="inst-amount font-bold">
+                                {inst.status === 'paid' ? formatCurrency(paidVal) : formatCurrency(inst.amount)}
                               </span>
+                            </div>
+                            {inst.status === 'paid' ? (
+                              inst.isPactada ? (
+                                <span className="inst-paid-badge pactada" title={`Pactada con abono de ${formatCurrency(paidVal)}`}>
+                                  <CheckCircle2 size={12} /> Pactada
+                                </span>
+                              ) : (
+                                <span className="inst-paid-badge">
+                                  <CheckCircle2 size={12} /> Pagada
+                                </span>
+                              )
                             ) : (
-                              <span className="inst-paid-badge">
-                                <CheckCircle2 size={12} /> Pagada
-                              </span>
-                            )
-                          ) : (
                             <button 
                               className="inst-pay-btn"
                               onClick={() => onOpenPaymentModal(inst)}
@@ -221,7 +224,8 @@ export const Loans: React.FC<LoansProps> = ({
                             </button>
                           )}
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
                 )}
