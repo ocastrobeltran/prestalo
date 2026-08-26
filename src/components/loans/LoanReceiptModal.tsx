@@ -44,7 +44,7 @@ ${loanInstallments.map(i => {
   const paidVal = (i.paidAmount && i.paidAmount > 0) ? i.paidAmount : breakdown.paidTotal;
   const estado = i.status === 'paid' 
     ? (i.isPactada ? `PAGADO PACTADO (${formatCurrency(paidVal)}) ✓` : 'PAGADO ✓')
-    : 'PENDIENTE';
+    : (i.renewalsCount && i.renewalsCount > 0 ? `RENOVADO (${i.renewalsCount}x por interés)` : 'PENDIENTE');
   const montoStr = i.status === 'paid' ? formatCurrency(paidVal) : formatCurrency(i.amount);
   return `- Cuota #${i.number}: ${montoStr} [Vence: ${i.dueDate}] -> *${estado}*`;
 }).join('\n')}
@@ -139,7 +139,7 @@ Gracias por su confianza.`;
                     <span className="text-right">
                       <Badge 
                         status={inst.status} 
-                        text={inst.status === 'paid' ? (inst.isPactada ? 'Pactada' : 'Pagada') : 'Pendiente'} 
+                        text={inst.status === 'paid' ? (inst.isPactada ? 'Pactada' : 'Pagada') : (inst.renewalsCount && inst.renewalsCount > 0 ? `Renovada (${inst.renewalsCount}x)` : 'Pendiente')} 
                       />
                     </span>
                   </div>

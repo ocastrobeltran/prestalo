@@ -1,5 +1,5 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
-import { generateInstallments, addMonths } from './loanCalculator';
+import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel } from './loanCalculator';
 import { supabaseSyncService, computeCapitalBox } from './supabaseSyncService';
 
 const CLIENTS_KEY = 'prestalo_clients';
@@ -309,6 +309,89 @@ export const storageService = {
       supabaseSyncService.syncUpPayment(affectedInstallments, updatedLoan, tx, capitalBox);
     }
     
+    return installment;
+  },
+
+  renewInstallmentWithInterest(installmentId: string, customInterestAmount?: number): Installment {
+    const installments = this.getInstallments();
+    const idx = installments.findIndex(i => i.id === installmentId);
+    if (idx === -1) throw new Error('Cuota no encontrada');
+
+    const installment = installments[idx];
+    const loans = this.getLoans();
+    const loanIdx = loans.findIndex(l => l.id === installment.loanId);
+    const loan = loanIdx !== -1 ? loans[loanIdx] : undefined;
+
+    // Calcular el interés pactado para este periodo
+    const defaultInterest = installment.interestAmount > 0
+      ? installment.interestAmount
+      : (loan ? Math.round((loan.capital * loan.interestRate) / (100 * loan.installmentsCount)) : 0);
+
+    const interestToPay = (customInterestAmount !== undefined && customInterestAmount > 0)
+      ? customInterestAmount
+      : defaultInterest;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const frequency = loan ? loan.paymentFrequency : 'monthly';
+
+    // Determinar la nueva fecha de vencimiento sumando 1 periodo
+    const newDueDate = getNextPaymentDate(installment.dueDate, frequency);
+    const affectedInstallments: Installment[] = [];
+
+    // Actualizar la cuota actual (se abonan intereses, se rueda la fecha y vuelve a quedar al día/pendiente)
+    installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + interestToPay;
+    installment.paidAmount = (installment.paidAmount ?? 0) + interestToPay;
+    installment.dueDate = newDueDate;
+    installment.renewalsCount = (installment.renewalsCount ?? 0) + 1;
+    installment.lastRenewalDate = todayStr;
+    installment.status = 'pending';
+    installment.isPactada = false;
+    installment.pactDate = undefined;
+    installment.pactDeadline = undefined;
+
+    installments[idx] = installment;
+    affectedInstallments.push(installment);
+
+    // Correr también las cuotas posteriores no pagadas del mismo préstamo si existen
+    installments.forEach((inst, iIdx) => {
+      if (inst.loanId === installment.loanId && inst.id !== installment.id && inst.number > installment.number && inst.status !== 'paid') {
+        const shiftedDueDate = getNextPaymentDate(inst.dueDate, frequency);
+        inst.dueDate = shiftedDueDate;
+        inst.status = 'pending';
+        installments[iIdx] = inst;
+        affectedInstallments.push(inst);
+      }
+    });
+
+    localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
+
+    // Actualizar préstamo (fecha fin y contador de renovaciones)
+    let updatedLoan: Loan | undefined = loan;
+    if (loan && loanIdx !== -1) {
+      const loanAllInsts = installments.filter(i => i.loanId === loan.id);
+      const lastInst = loanAllInsts[loanAllInsts.length - 1];
+      loans[loanIdx].endDate = lastInst ? lastInst.dueDate : newDueDate;
+      loans[loanIdx].renewalsCount = (loans[loanIdx].renewalsCount ?? 0) + 1;
+      loans[loanIdx].status = 'active';
+      localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
+      updatedLoan = loans[loanIdx];
+    }
+
+    // Registrar transacción de ingreso por intereses cobrados
+    const stepLabel = getRenewalStepLabel(frequency);
+    const tx = this.addTransaction({
+      amount: interestToPay,
+      type: 'installment_payment',
+      description: `Renovación por Interés (+${stepLabel}) Cuota #${installment.number} · ${installment.clientName}`,
+      referenceId: installment.loanId
+    });
+
+    const capitalBox = this.reconcileCapitalBox();
+
+    if (updatedLoan) {
+      supabaseSyncService.syncUpPayment(affectedInstallments, updatedLoan, tx, capitalBox);
+    }
+
     return installment;
   },
 

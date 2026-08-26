@@ -22,6 +22,7 @@ export interface Loan {
   startDate: string;           // Fecha de inicio (YYYY-MM-DD)
   endDate: string;             // Fecha de vencimiento (YYYY-MM-DD)
   status: 'active' | 'completed' | 'overdue';
+  renewalsCount?: number;      // Número de veces que el préstamo ha sido renovado por solo intereses
 }
 
 export interface Installment {
@@ -33,16 +34,18 @@ export interface Installment {
   amount: number;              // Monto restante de la cuota por pagar
   capitalAmount: number;       // Parte restante del capital
   interestAmount: number;      // Parte restante del interés
-  paidAmount?: number;         // Monto ya cobrado de esta cuota (incluye abonos parciales)
+  paidAmount?: number;         // Monto ya cobrado de esta cuota (incluye abonos parciales e intereses de renovación)
   paidCapitalAmount?: number;  // Capital ya cobrado de esta cuota
   paidInterestAmount?: number; // Interés ya cobrado de esta cuota
-  dueDate: string;             // Fecha de vencimiento original (YYYY-MM-DD)
+  dueDate: string;             // Fecha de vencimiento original o renovada (YYYY-MM-DD)
   paidDate: string | null;     // Fecha de pago final (null si aún tiene saldo pendiente)
   status: 'pending' | 'paid' | 'overdue';
   isPactada?: boolean;         // Si la cuota tiene acuerdo/pacto de abono parcial
   pactDate?: string;           // Fecha en que se realizó el pacto (YYYY-MM-DD)
   pactDeadline?: string;       // Fecha límite del mes pactado (YYYY-MM-DD)
   waivedAmount?: number;       // Monto condonado/pactado en la cuota (si aplica)
+  renewalsCount?: number;      // Cantidad de renovaciones de plazo realizadas pagando intereses
+  lastRenewalDate?: string;    // Última fecha en que se renovó (YYYY-MM-DD)
 }
 
 export interface CapitalBox {

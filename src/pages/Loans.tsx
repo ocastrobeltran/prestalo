@@ -134,6 +134,11 @@ export const Loans: React.FC<LoansProps> = ({
                         loan.paymentFrequency === 'weekly' ? 'semanal' :
                         loan.paymentFrequency === 'biweekly' ? 'quincenal' : 'mensual'
                       } · {loan.interestRate}%
+                      {loan.renewalsCount && loan.renewalsCount > 0 ? (
+                        <span style={{ marginLeft: '6px', color: 'var(--primary)', fontWeight: 600 }}>
+                          · 🔄 {loan.renewalsCount} {loan.renewalsCount === 1 ? 'renovación' : 'renovaciones'}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <Badge 
@@ -205,6 +210,11 @@ export const Loans: React.FC<LoansProps> = ({
                             <div className="inst-mini-info">
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span className="inst-num">Cuota #{inst.number}</span>
+                                {inst.renewalsCount && inst.renewalsCount > 0 && (
+                                  <span style={{ fontSize: '9px', color: '#0284c7', fontWeight: 700, backgroundColor: 'rgba(2, 132, 199, 0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                                    🔄 {inst.renewalsCount} ren.
+                                  </span>
+                                )}
                                 {isPactadaState && (
                                   <span style={{ fontSize: '9px', color: '#0284c7', fontWeight: 700 }}>
                                     🤝 Pactada
@@ -219,7 +229,7 @@ export const Loans: React.FC<LoansProps> = ({
                               <span className="inst-date">Vence: {inst.dueDate}</span>
                               {inst.paidAmount && inst.paidAmount > 0 && !isPaid && (
                                 <span style={{ fontSize: '10px', color: 'var(--success)' }}>
-                                  Abonado: {formatCurrency(inst.paidAmount)}
+                                  {inst.renewalsCount && inst.renewalsCount > 0 ? 'Intereses abonados' : 'Abonado'}: {formatCurrency(inst.paidAmount)}
                                 </span>
                               )}
                               <span className="inst-amount font-bold">

@@ -163,6 +163,11 @@ const App: React.FC = () => {
     refreshData();
   };
 
+  const handleConfirmRenewal = (installmentId: string, interestAmount: number) => {
+    storageService.renewInstallmentWithInterest(installmentId, interestAmount);
+    refreshData();
+  };
+
   // CAPITAL ACTIONS
   const handleUpdateCapital = (newCapital: number) => {
     storageService.setInitialCapital(newCapital);
@@ -301,6 +306,7 @@ const App: React.FC = () => {
         onClose={() => setIsPaymentModalOpen(false)}
         installment={activeInstallmentForPayment}
         onConfirmPayment={handleConfirmPayment}
+        onConfirmRenewal={handleConfirmRenewal}
       />
     </>
   );

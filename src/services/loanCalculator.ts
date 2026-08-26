@@ -180,6 +180,23 @@ export function getNextPaymentDate(currentDateStr: string, frequency: PaymentFre
 }
 
 /**
+ * Retorna la descripción amigable del periodo de extensión/renovación
+ */
+export function getRenewalStepLabel(frequency: PaymentFrequency): string {
+  switch (frequency) {
+    case 'daily':
+      return '1 día hábil';
+    case 'weekly':
+      return '1 semana (7 días)';
+    case 'biweekly':
+      return '1 quincena (14 días)';
+    case 'monthly':
+    default:
+      return '1 mes';
+  }
+}
+
+/**
  * Genera la tabla de amortización para un préstamo
  */
 export function generateInstallments(params: {

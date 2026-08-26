@@ -396,6 +396,12 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
                         <span>Límite sin mora: {inst.pactDeadline || addMonths(inst.dueDate, 1)}</span>
                       </div>
                     )}
+                    {inst.renewalsCount && inst.renewalsCount > 0 ? (
+                      <div className="cobro-details-row text-xs" style={{ color: '#0284c7', fontWeight: 600 }}>
+                        <span>🔄 Renovada {inst.renewalsCount} {inst.renewalsCount === 1 ? 'vez' : 'veces'}</span>
+                        <span>{inst.lastRenewalDate ? `Última: ${inst.lastRenewalDate}` : ''}</span>
+                      </div>
+                    ) : null}
                     <div className="cobro-date-row">
                       <span>Vence: {inst.dueDate}</span>
                       {inst.paidDate && <span className="success">Pagado el: {inst.paidDate}</span>}
