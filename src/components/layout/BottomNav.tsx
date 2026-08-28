@@ -11,52 +11,70 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
     { id: 'inicio', label: 'Inicio', icon: Home },
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'prestamos', label: 'Préstamos', icon: DollarSign },
-    { id: 'calendario', label: 'Calendario', icon: Calendar },
-    { id: 'reportes', label: 'Reportes', icon: BarChart3 }
+    { id: 'calendario', label: 'Cobros', icon: Calendar },
+    { id: 'reportes', label: 'Métricas', icon: BarChart3 }
   ];
 
   return (
-    <nav className="bottom-nav no-print">
-      {navItems.map((item) => {
-        const IconComponent = item.icon;
-        const isActive = activeTab === item.id;
-        
-        return (
-          <button
-            key={item.id}
-            className={`nav-item ${isActive ? 'active' : ''}`}
-            onClick={() => setActiveTab(item.id)}
-            aria-label={item.label}
-          >
-            <div className="icon-wrapper">
-              <IconComponent size={22} strokeWidth={isActive ? 2.5 : 2} />
-            </div>
-            <span className="nav-label">{item.label}</span>
-          </button>
-        );
-      })}
+    <nav className="floating-bottom-nav no-print" aria-label="Navegación principal">
+      <div className="nav-capsule">
+        {navItems.map((item) => {
+          const IconComponent = item.icon;
+          const isActive = activeTab === item.id;
+          
+          return (
+            <button
+              key={item.id}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveTab(item.id)}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <div className="icon-wrapper">
+                <IconComponent size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+                {isActive && <div className="active-glow-dot" />}
+              </div>
+              <span className="nav-label">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <style>{`
-        .bottom-nav {
-          position: absolute;
+        .floating-bottom-nav {
+          position: fixed;
           bottom: 0;
           left: 0;
           right: 0;
-          height: calc(64px + env(safe-area-inset-bottom));
-          padding-bottom: env(safe-area-inset-bottom);
-          background-color: var(--glass-bg);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-top: 1px solid var(--border-color);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 8px 16px;
+          padding-bottom: calc(12px + env(safe-area-inset-bottom));
+          pointer-events: none;
+          z-index: 100;
+        }
+
+        .nav-capsule {
+          pointer-events: auto;
+          width: 100%;
+          max-width: 440px;
+          height: 64px;
+          background: var(--glass-bg);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid var(--glass-border);
+          border-radius: 32px;
           display: flex;
           justify-content: space-around;
           align-items: center;
-          z-index: 100;
-          box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
-          transition: background-color 0.3s, border-color 0.3s;
+          padding: 0 8px;
+          box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.25);
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .nav-item {
+          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -64,20 +82,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           flex: 1;
           height: 100%;
           color: var(--text-tertiary);
-          font-size: 10px;
-          font-weight: 500;
-          gap: 4px;
-          transition: color 0.2s ease, transform 0.1s ease;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          padding: 4px 0;
         }
 
         .icon-wrapper {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          height: 28px;
-          width: 28px;
-          border-radius: 8px;
-          transition: background-color 0.2s, transform 0.2s;
+          height: 32px;
+          width: 32px;
+          border-radius: 12px;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .nav-item.active {
@@ -85,13 +102,36 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
         }
 
         .nav-item.active .icon-wrapper {
+          background: rgba(var(--primary-rgb), 0.12);
           transform: translateY(-2px);
+          color: var(--primary);
+        }
+
+        .active-glow-dot {
+          position: absolute;
+          bottom: -2px;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: var(--primary);
+          box-shadow: 0 0 8px var(--primary);
         }
 
         .nav-label {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 600;
-          letter-spacing: 0.1px;
+          letter-spacing: -0.1px;
+          margin-top: 2px;
+          transition: color 0.2s;
+        }
+
+        .nav-item.active .nav-label {
+          color: var(--text-primary);
+          font-weight: 700;
+        }
+
+        .nav-item:active {
+          transform: scale(0.92);
         }
       `}</style>
     </nav>

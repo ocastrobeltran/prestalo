@@ -1,55 +1,70 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Colors - Tech Innovation Theme (Neon Cyan & Emerald Accent) */
-  --primary-rgb: 6, 182, 212; /* #06b6d4 (Cyan) */
+  /* Design System: Aurora Mint & Obsidian Titanium */
+  --primary-rgb: 0, 242, 157; /* #00F29D (Aurora Mint) */
   --primary: rgb(var(--primary-rgb));
-  --primary-hover: #0891b2;
+  --primary-hover: #00d68a;
+  --primary-glow: rgba(0, 242, 157, 0.25);
   
-  --success-rgb: 16, 185, 129; /* #10b981 */
+  --success-rgb: 0, 242, 157;
   --success: rgb(var(--success-rgb));
   
-  --warning-rgb: 245, 158, 11; /* #f59e0b */
+  --warning-rgb: 251, 191, 36; /* #fbbf24 (Solar Amber) */
   --warning: rgb(var(--warning-rgb));
   
-  --danger-rgb: 244, 63, 94; /* #f43f5e (Rose-500) */
+  --danger-rgb: 255, 56, 92; /* #ff385c (Crimson Pulse) */
   --danger: rgb(var(--danger-rgb));
   
+  --info-rgb: 56, 189, 248; /* #38bdf8 (Cyber Blue) */
+  --info: rgb(var(--info-rgb));
+
+  --accent-purple-rgb: 139, 92, 246; /* #8b5cf6 */
+  --accent-purple: rgb(var(--accent-purple-rgb));
+  
   /* Light Theme Variables */
-  --bg-app: #f8fafc;
+  --bg-app: #f4f7fb;
   --bg-container: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #f1f5f9;
-  --text-primary: #0f172a;
+  --bg-input: #edf2f7;
+  --bg-elevated: #f8fafc;
+  --text-primary: #0b1329;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
   --border-color: #e2e8f0;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.05);
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --border-subtle: #edf2f7;
+  --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 16px -2px rgba(11, 19, 41, 0.06), 0 2px 6px -1px rgba(11, 19, 41, 0.04);
+  --shadow-lg: 0 16px 32px -4px rgba(11, 19, 41, 0.08), 0 4px 12px -2px rgba(11, 19, 41, 0.04);
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(226, 232, 240, 0.8);
   
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', sans-serif;
 }
 
-/* Dark Theme Variables - Midnight Galaxy */
+/* Dark Theme Variables - Obsidian Titanium (Default & Signature) */
 .dark {
-  --bg-app: #080c14; /* Cosmic Navy deep */
-  --bg-container: #0f1524; /* Frosted card navy */
-  --bg-card: #151e33; /* Lighter card navy */
-  --bg-input: #1b2640;
+  --primary-rgb: 0, 242, 157; /* #00F29D */
+  --primary: rgb(var(--primary-rgb));
+  --primary-hover: #1dfbb0;
+  
+  --bg-app: #070a12; /* Deep Obsidian */
+  --bg-container: #0c111e; /* Obsidian Canvas */
+  --bg-card: #111828; /* Titanium Card Surface */
+  --bg-input: #162035; /* Crisp Input Field */
+  --bg-elevated: #1a243c; /* Floating Active Layer */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
-  --border-color: #233256;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
-  --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 30px -3px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.6);
-  --glass-bg: rgba(15, 21, 36, 0.8);
-  --glass-border: rgba(35, 50, 86, 0.4);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 20px -2px rgba(0, 0, 0, 0.5), 0 2px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 40px -4px rgba(0, 0, 0, 0.65), 0 6px 16px -2px rgba(0, 0, 0, 0.45);
+  --glass-bg: rgba(12, 17, 30, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -182,8 +197,17 @@ button:active {
   }
 }
 
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 242, 157, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 242, 157, 0.45);
+  }
+}
+
 .animate-slide-up {
-  animation: slideUp 0.3s ease-out forwards;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fade-in {
@@ -191,7 +215,76 @@ button:active {
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.25s ease-out forwards;
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Clases del Sistema de Diseño Titanium */
+.titan-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.titan-card:active {
+  transform: scale(0.99);
+}
+
+.aurora-btn-primary {
+  background: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
+  color: #070A12;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 14px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(0, 242, 157, 0.3);
+  transition: all 0.2s ease;
+}
+
+.aurora-btn-primary:active {
+  transform: scale(0.97);
+  filter: brightness(0.95);
+}
+
+/* Badges Exclusivos */
+.badge-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-status.paid {
+  background: rgba(0, 242, 157, 0.12);
+  color: #00F29D;
+  border: 1px solid rgba(0, 242, 157, 0.3);
+}
+
+.badge-status.pactada {
+  background: rgba(251, 191, 36, 0.12);
+  color: #FBBF24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.badge-status.overdue {
+  background: rgba(255, 56, 92, 0.12);
+  color: #FF385C;
+  border: 1px solid rgba(255, 56, 92, 0.3);
+}
+
+.badge-status.pending {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
 /* Estilos de Impresión en Recibos (PDF Nativos) */

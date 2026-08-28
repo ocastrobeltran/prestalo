@@ -6,17 +6,22 @@ import { Clients } from './pages/Clients';
 import { Loans } from './pages/Loans';
 import { Calendar } from './pages/Calendar';
 import { Reports } from './pages/Reports';
+import { TermsAndConditions } from './pages/TermsAndConditions';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { ClientModal } from './components/clients/ClientModal';
 import { LoanModal } from './components/loans/LoanModal';
 import { LoanReceiptModal } from './components/loans/LoanReceiptModal';
 import { PaymentModal } from './components/loans/PaymentModal';
+import { PaywallModal } from './components/subscription/PaywallModal';
+import { DeleteAccountModal } from './components/auth/DeleteAccountModal';
 import { storageService } from './services/storageService';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
 import { Login } from './components/auth/Login';
+import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from './types';
 
-const App: React.FC = () => {
+const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('inicio');
   
   // State de Autenticación
@@ -49,6 +54,11 @@ const App: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeInstallmentForPayment, setActiveInstallmentForPayment] = useState<Installment | null>(null);
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Contexto de Suscripción
+  const { canCreateClient, canCreateLoan, isPaywallOpen, openPaywall, closePaywall } = useSubscription();
+
   // Cargar y refrescar datos
   const refreshData = () => {
     setClients(storageService.getClients());
@@ -66,8 +76,8 @@ const App: React.FC = () => {
       if (active) {
         setSession(session);
         setAuthLoading(false);
-        if (session) {
-          storageService.initializeData();
+        if (session?.user) {
+          storageService.setCurrentUser(session.user.id);
           refreshData();
           supabaseSyncService.syncDown(() => {
             if (active) refreshData();
@@ -81,14 +91,15 @@ const App: React.FC = () => {
       if (active) {
         setSession(newSession);
         setAuthLoading(false);
-        if (newSession) {
-          storageService.initializeData();
+        if (newSession?.user) {
+          storageService.setCurrentUser(newSession.user.id);
           refreshData();
           supabaseSyncService.syncDown(() => {
             if (active) refreshData();
           });
         } else {
           // Limpiar datos al cerrar sesión
+          storageService.clearUserData();
           setClients([]);
           setLoans([]);
           setInstallments([]);
@@ -133,6 +144,15 @@ const App: React.FC = () => {
     refreshData();
   };
 
+  const openNewClientModal = () => {
+    if (!canCreateClient(clients.length)) {
+      openPaywall();
+      return;
+    }
+    setClientToEdit(null);
+    setIsClientModalOpen(true);
+  };
+
   // LOAN ACTIONS
   const handleCreateLoan = (loanData: Omit<Loan, 'id' | 'totalToPay' | 'endDate' | 'status'>) => {
     const { loan } = storageService.createLoan(loanData);
@@ -150,6 +170,15 @@ const App: React.FC = () => {
   const handleViewReceipt = (loan: Loan) => {
     setActiveLoanForReceipt(loan);
     setIsReceiptModalOpen(true);
+  };
+
+  const openNewLoanModal = (clientId?: string) => {
+    if (!canCreateLoan(loans.length)) {
+      openPaywall();
+      return;
+    }
+    setDefaultClientId(clientId);
+    setIsLoanModalOpen(true);
   };
 
   // INSTALLMENTS & PAYMENT ACTIONS
@@ -172,16 +201,6 @@ const App: React.FC = () => {
   const handleUpdateCapital = (newCapital: number) => {
     storageService.setInitialCapital(newCapital);
     refreshData();
-  };
-
-  const openNewClientModal = () => {
-    setClientToEdit(null);
-    setIsClientModalOpen(true);
-  };
-
-  const openNewLoanModal = (clientId?: string) => {
-    setDefaultClientId(clientId);
-    setIsLoanModalOpen(true);
   };
 
   if (authLoading) {
@@ -257,6 +276,10 @@ const App: React.FC = () => {
             transactions={transactions}
           />
         );
+      case 'terminos':
+        return <TermsAndConditions onBack={() => setActiveTab('inicio')} />;
+      case 'privacidad':
+        return <PrivacyPolicy onBack={() => setActiveTab('inicio')} />;
       default:
         return <div>Página no encontrada</div>;
     }
@@ -266,7 +289,10 @@ const App: React.FC = () => {
     <>
       <Header 
         activeTab={activeTab} 
-        onDataRefresh={refreshData} 
+        onDataRefresh={refreshData}
+        onOpenTerms={() => setActiveTab('terminos')}
+        onOpenPrivacy={() => setActiveTab('privacidad')}
+        onOpenDeleteAccount={() => setIsDeleteModalOpen(true)}
       />
       
       <main>
@@ -308,7 +334,25 @@ const App: React.FC = () => {
         onConfirmPayment={handleConfirmPayment}
         onConfirmRenewal={handleConfirmRenewal}
       />
+
+      <PaywallModal
+        isOpen={isPaywallOpen}
+        onClose={closePaywall}
+      />
+
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+      />
     </>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <SubscriptionProvider>
+      <MainApp />
+    </SubscriptionProvider>
   );
 };
 

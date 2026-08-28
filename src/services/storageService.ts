@@ -1,14 +1,40 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
 import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel } from './loanCalculator';
-import { supabaseSyncService, computeCapitalBox } from './supabaseSyncService';
+import { supabaseSyncService, computeCapitalBox, setSyncUserId } from './supabaseSyncService';
 
-const CLIENTS_KEY = 'prestalo_clients';
-const LOANS_KEY = 'prestalo_loans';
-const INSTALLMENTS_KEY = 'prestalo_installments';
-const CAPITAL_KEY = 'prestalo_capital';
-const TRANSACTIONS_KEY = 'prestalo_transactions';
+let currentUserId: string | null = null;
+
+const getKey = (baseKey: string) => {
+  return currentUserId ? `prestalo_${currentUserId}_${baseKey}` : `prestalo_${baseKey}`;
+};
 
 export const storageService = {
+  // Configurar usuario actual y aislar espacio de almacenamiento local
+  setCurrentUser(userId: string | null) {
+    currentUserId = userId;
+    setSyncUserId(userId);
+    if (userId) {
+      this.initializeData();
+    }
+  },
+
+  getCurrentUserId(): string | null {
+    return currentUserId;
+  },
+
+  // Limpiar datos locales del usuario actual (al cerrar sesión)
+  clearUserData() {
+    if (currentUserId) {
+      localStorage.removeItem(getKey('clients'));
+      localStorage.removeItem(getKey('loans'));
+      localStorage.removeItem(getKey('installments'));
+      localStorage.removeItem(getKey('capital'));
+      localStorage.removeItem(getKey('transactions'));
+    }
+    currentUserId = null;
+    setSyncUserId(null);
+  },
+
   // Inicialización
   initializeData(force: boolean = false) {
     const defaultBox: CapitalBox = {
@@ -19,19 +45,30 @@ export const storageService = {
       totalInterestRecovered: 0
     };
 
-    if (force || !localStorage.getItem(CLIENTS_KEY)) {
-      localStorage.setItem(CLIENTS_KEY, JSON.stringify([]));
-      localStorage.setItem(LOANS_KEY, JSON.stringify([]));
-      localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify([]));
-      localStorage.setItem(CAPITAL_KEY, JSON.stringify(defaultBox));
-      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify([]));
+    const clientsKey = getKey('clients');
+    if (force || !localStorage.getItem(clientsKey)) {
+      // Migración transparente: Si existen datos previos en claves globales, preservarlos para el usuario actual
+      const legacyClients = localStorage.getItem('prestalo_clients');
+      if (currentUserId && legacyClients && !force) {
+        localStorage.setItem(getKey('clients'), legacyClients);
+        localStorage.setItem(getKey('loans'), localStorage.getItem('prestalo_loans') || JSON.stringify([]));
+        localStorage.setItem(getKey('installments'), localStorage.getItem('prestalo_installments') || JSON.stringify([]));
+        localStorage.setItem(getKey('capital'), localStorage.getItem('prestalo_capital') || JSON.stringify(defaultBox));
+        localStorage.setItem(getKey('transactions'), localStorage.getItem('prestalo_transactions') || JSON.stringify([]));
+      } else {
+        localStorage.setItem(getKey('clients'), JSON.stringify([]));
+        localStorage.setItem(getKey('loans'), JSON.stringify([]));
+        localStorage.setItem(getKey('installments'), JSON.stringify([]));
+        localStorage.setItem(getKey('capital'), JSON.stringify(defaultBox));
+        localStorage.setItem(getKey('transactions'), JSON.stringify([]));
+      }
     }
   },
 
   // CLIENTS
   getClients(): Client[] {
     this.initializeData();
-    const data = localStorage.getItem(CLIENTS_KEY);
+    const data = localStorage.getItem(getKey('clients'));
     return data ? JSON.parse(data) : [];
   },
 
@@ -46,6 +83,7 @@ export const storageService = {
         newClient = {
           ...clients[index],
           ...client,
+          userId: currentUserId || clients[index].userId,
           id: client.id
         };
         clients[index] = newClient;
@@ -57,27 +95,28 @@ export const storageService = {
       newClient = {
         ...client,
         id: 'c_' + Math.random().toString(36).substr(2, 9),
+        userId: currentUserId || undefined,
         createdAt: new Date().toISOString().split('T')[0],
         status: 'active'
       };
       clients.push(newClient);
     }
     
-    localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+    localStorage.setItem(getKey('clients'), JSON.stringify(clients));
     supabaseSyncService.syncUpClient(newClient);
     return newClient;
   },
 
   deleteClient(id: string): void {
     const clients = this.getClients().filter(c => c.id !== id);
-    localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+    localStorage.setItem(getKey('clients'), JSON.stringify(clients));
     supabaseSyncService.deleteRemoteClient(id);
   },
 
   // LOANS
   getLoans(): Loan[] {
     this.initializeData();
-    const data = localStorage.getItem(LOANS_KEY);
+    const data = localStorage.getItem(getKey('loans'));
     return data ? JSON.parse(data) : [];
   },
 
@@ -89,7 +128,7 @@ export const storageService = {
     const loanId = 'l_' + Math.random().toString(36).substr(2, 9);
     
     // Generar cuotas
-    const installments = generateInstallments({
+    const rawInstallments = generateInstallments({
       loanId,
       clientId: loanData.clientId,
       clientName: loanData.clientName,
@@ -99,6 +138,11 @@ export const storageService = {
       installmentsCount: loanData.installmentsCount,
       startDate: loanData.startDate
     });
+
+    const installments = rawInstallments.map(i => ({
+      ...i,
+      userId: currentUserId || undefined
+    }));
     
     // Fecha de vencimiento es la fecha de vencimiento de la última cuota
     const endDate = installments.length > 0 ? installments[installments.length - 1].dueDate : loanData.startDate;
@@ -106,18 +150,19 @@ export const storageService = {
     const newLoan: Loan = {
       ...loanData,
       id: loanId,
+      userId: currentUserId || undefined,
       totalToPay,
       endDate,
       status: 'active'
     };
     
     loans.push(newLoan);
-    localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
+    localStorage.setItem(getKey('loans'), JSON.stringify(loans));
     
     // Guardar cuotas
     const allInstallments = this.getInstallments();
     allInstallments.push(...installments);
-    localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(allInstallments));
+    localStorage.setItem(getKey('installments'), JSON.stringify(allInstallments));
     
     // Registrar transacción
     const tx = this.addTransaction({
@@ -141,10 +186,10 @@ export const storageService = {
     
     // Filtrar préstamos y cuotas
     const updatedLoans = loans.filter(l => l.id !== id);
-    localStorage.setItem(LOANS_KEY, JSON.stringify(updatedLoans));
+    localStorage.setItem(getKey('loans'), JSON.stringify(updatedLoans));
     
     const updatedInstallments = this.getInstallments().filter(i => i.loanId !== id);
-    localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(updatedInstallments));
+    localStorage.setItem(getKey('installments'), JSON.stringify(updatedInstallments));
     
     // Registrar transacción de reverso y reconciliar caja
     let tx: CapitalTransaction | undefined;
@@ -162,7 +207,7 @@ export const storageService = {
   // INSTALLMENTS (CUOTAS)
   getInstallments(): Installment[] {
     this.initializeData();
-    const data = localStorage.getItem(INSTALLMENTS_KEY);
+    const data = localStorage.getItem(getKey('installments'));
     return data ? JSON.parse(data) : [];
   },
 
@@ -209,7 +254,6 @@ export const storageService = {
         installment.status = 'paid';
         installment.paidDate = todayStr;
       } else {
-        // Mantiene estado pending (o pactada con plazo de 1 mes antes de mora)
         installment.status = 'pending';
         installment.paidDate = null;
       }
@@ -231,7 +275,7 @@ export const storageService = {
 
       const excess = amountToPay - originalAmount;
       if (excess > 0) {
-        // Si pagó de más, aplicar el excedente a la siguiente cuota pendiente del mismo préstamo
+        // Excedente aplicado a cuotas posteriores
         const pendingLoanInstallments = installments.filter(i => i.loanId === installment.loanId && i.status !== 'paid' && i.id !== installment.id);
         if (pendingLoanInstallments.length > 0) {
           const nextInstIdx = installments.findIndex(i => i.id === pendingLoanInstallments[0].id);
@@ -250,69 +294,66 @@ export const storageService = {
               nextInst.amount = 0;
               nextInst.capitalAmount = 0;
               nextInst.interestAmount = 0;
+              affectedInstallments.push(nextInst);
             } else {
-              const ratio = excess / nextInst.amount;
-              const paidCap = Math.round(nextInst.capitalAmount * ratio);
-              const paidInt = excess - paidCap;
+              const nextRatio = excess / nextInst.amount;
+              const nextPaidCapital = Math.round(nextInst.capitalAmount * nextRatio);
+              const nextPaidInterest = excess - nextPaidCapital;
 
               nextInst.paidAmount = (nextInst.paidAmount ?? 0) + excess;
-              nextInst.paidCapitalAmount = (nextInst.paidCapitalAmount ?? 0) + paidCap;
-              nextInst.paidInterestAmount = (nextInst.paidInterestAmount ?? 0) + paidInt;
+              nextInst.paidCapitalAmount = (nextInst.paidCapitalAmount ?? 0) + nextPaidCapital;
+              nextInst.paidInterestAmount = (nextInst.paidInterestAmount ?? 0) + nextPaidInterest;
               nextInst.amount -= excess;
-              nextInst.capitalAmount = Math.max(0, nextInst.capitalAmount - paidCap);
-              nextInst.interestAmount = Math.max(0, nextInst.amount - nextInst.capitalAmount);
+              nextInst.capitalAmount = Math.max(0, nextInst.capitalAmount - nextPaidCapital);
+              nextInst.interestAmount = Math.max(0, nextInst.interestAmount - nextPaidInterest);
+              affectedInstallments.push(nextInst);
             }
-            installments[nextInstIdx] = nextInst;
-            affectedInstallments.push(nextInst);
           }
         }
       }
     }
 
     installments[idx] = installment;
-    affectedInstallments.unshift(installment);
-    localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
-    
-    // Registrar transacción con el monto abonado exacto
-    const txDesc = isPactada && amountToPay < (installment.paidAmount || amountToPay)
-      ? `Pago pactado Cuota #${installment.number} de ${installment.clientName}`
-      : `Pago/Abono Cuota #${installment.number} de ${installment.clientName}`;
+    localStorage.setItem(getKey('installments'), JSON.stringify(installments));
 
+    // Verificar si el préstamo se completó totalmente
+    const loanInstallments = installments.filter(i => i.loanId === installment.loanId);
+    const allPaid = loanInstallments.every(i => i.status === 'paid' || i.amount <= 0);
+    
+    let updatedLoan: Loan | undefined;
+    if (allPaid) {
+      const loans = this.getLoans();
+      const lIdx = loans.findIndex(l => l.id === installment.loanId);
+      if (lIdx !== -1) {
+        loans[lIdx].status = 'completed';
+        updatedLoan = loans[lIdx];
+        localStorage.setItem(getKey('loans'), JSON.stringify(loans));
+      }
+    }
+
+    // Registrar transacción de ingreso en caja
+    const isTotalPactadaPayment = isPactada && installment.status === 'paid' && amountToPay < (installment.paidAmount || 0);
     const tx = this.addTransaction({
       amount: actualPaidAmount,
       type: 'installment_payment',
-      description: txDesc,
+      description: isTotalPactadaPayment
+        ? `Pago Pactado Saldo Cuota #${installment.number} - ${installment.clientName}`
+        : `Pago Cuota #${installment.number} - ${installment.clientName} (Abono: $${actualPaidAmount})`,
       referenceId: installment.loanId
     });
-    
-    // Verificar si el préstamo se ha pagado por completo
-    const loanId = installment.loanId;
-    const loanInstallments = installments.filter(i => i.loanId === loanId);
-    const pendingInstallments = loanInstallments.filter(i => i.status !== 'paid');
-    
-    const loans = this.getLoans();
-    let updatedLoan: Loan | undefined;
-    if (pendingInstallments.length === 0) {
-      const loanIdx = loans.findIndex(l => l.id === loanId);
-      if (loanIdx !== -1) {
-        loans[loanIdx].status = 'completed';
-        localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
-        updatedLoan = loans[loanIdx];
-      }
-    } else {
-      updatedLoan = loans.find(l => l.id === loanId);
-    }
 
     const capitalBox = this.reconcileCapitalBox();
-    
-    if (updatedLoan) {
-      supabaseSyncService.syncUpPayment(affectedInstallments, updatedLoan, tx, capitalBox);
+
+    const currentLoan = updatedLoan || this.getLoans().find(l => l.id === installment.loanId);
+    if (currentLoan) {
+      const allToSync = [installment, ...affectedInstallments];
+      supabaseSyncService.syncUpPayment(allToSync, currentLoan, tx, capitalBox);
     }
-    
+
     return installment;
   },
 
-  renewInstallmentWithInterest(installmentId: string, customInterestAmount?: number): Installment {
+  renewInstallmentWithInterest(installmentId: string, interestAmount: number): Installment {
     const installments = this.getInstallments();
     const idx = installments.findIndex(i => i.id === installmentId);
     if (idx === -1) throw new Error('Cuota no encontrada');
@@ -320,82 +361,44 @@ export const storageService = {
     const installment = installments[idx];
     const loans = this.getLoans();
     const loanIdx = loans.findIndex(l => l.id === installment.loanId);
-    const loan = loanIdx !== -1 ? loans[loanIdx] : undefined;
+    if (loanIdx === -1) throw new Error('Préstamo no encontrado');
 
-    // Calcular el interés pactado para este periodo
-    const defaultInterest = installment.interestAmount > 0
-      ? installment.interestAmount
-      : (loan ? Math.round((loan.capital * loan.interestRate) / (100 * loan.installmentsCount)) : 0);
-
-    const interestToPay = (customInterestAmount !== undefined && customInterestAmount > 0)
-      ? customInterestAmount
-      : defaultInterest;
-
+    const loan = loans[loanIdx];
     const todayStr = new Date().toISOString().split('T')[0];
-    const frequency = loan ? loan.paymentFrequency : 'monthly';
+    const frequency = loan.paymentFrequency || 'monthly';
+    const nextDueDate = getNextPaymentDate(installment.dueDate, frequency);
 
-    // Determinar la nueva fecha de vencimiento sumando 1 periodo
-    const newDueDate = getNextPaymentDate(installment.dueDate, frequency);
-    const affectedInstallments: Installment[] = [];
-
-    // Actualizar la cuota actual (se abonan intereses, se rueda la fecha y vuelve a quedar al día/pendiente)
-    installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + interestToPay;
-    installment.paidAmount = (installment.paidAmount ?? 0) + interestToPay;
-    installment.dueDate = newDueDate;
-    installment.renewalsCount = (installment.renewalsCount ?? 0) + 1;
-    installment.lastRenewalDate = todayStr;
+    installment.paidAmount = (installment.paidAmount ?? 0) + interestAmount;
+    installment.paidInterestAmount = (installment.paidInterestAmount ?? 0) + interestAmount;
+    installment.dueDate = nextDueDate;
     installment.status = 'pending';
-    installment.isPactada = false;
-    installment.pactDate = undefined;
-    installment.pactDeadline = undefined;
+    installment.renewalsCount = (installment.renewalsCount || 0) + 1;
+    installment.lastRenewalDate = todayStr;
 
     installments[idx] = installment;
-    affectedInstallments.push(installment);
+    localStorage.setItem(getKey('installments'), JSON.stringify(installments));
 
-    // Correr también las cuotas posteriores no pagadas del mismo préstamo si existen
-    installments.forEach((inst, iIdx) => {
-      if (inst.loanId === installment.loanId && inst.id !== installment.id && inst.number > installment.number && inst.status !== 'paid') {
-        const shiftedDueDate = getNextPaymentDate(inst.dueDate, frequency);
-        inst.dueDate = shiftedDueDate;
-        inst.status = 'pending';
-        installments[iIdx] = inst;
-        affectedInstallments.push(inst);
-      }
-    });
+    loan.totalToPay = Number(loan.totalToPay) + Number(interestAmount);
+    loan.renewalsCount = (loan.renewalsCount || 0) + 1;
+    loan.endDate = nextDueDate;
+    loans[loanIdx] = loan;
+    localStorage.setItem(getKey('loans'), JSON.stringify(loans));
 
-    localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
-
-    // Actualizar préstamo (fecha fin y contador de renovaciones)
-    let updatedLoan: Loan | undefined = loan;
-    if (loan && loanIdx !== -1) {
-      const loanAllInsts = installments.filter(i => i.loanId === loan.id);
-      const lastInst = loanAllInsts[loanAllInsts.length - 1];
-      loans[loanIdx].endDate = lastInst ? lastInst.dueDate : newDueDate;
-      loans[loanIdx].renewalsCount = (loans[loanIdx].renewalsCount ?? 0) + 1;
-      loans[loanIdx].status = 'active';
-      localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
-      updatedLoan = loans[loanIdx];
-    }
-
-    // Registrar transacción de ingreso por intereses cobrados
     const stepLabel = getRenewalStepLabel(frequency);
     const tx = this.addTransaction({
-      amount: interestToPay,
+      amount: interestAmount,
       type: 'installment_payment',
-      description: `Renovación por Interés (+${stepLabel}) Cuota #${installment.number} · ${installment.clientName}`,
+      description: `Renovación de plazo (${stepLabel}) Cuota #${installment.number} - ${installment.clientName} (Interés cobrado: $${interestAmount})`,
       referenceId: installment.loanId
     });
 
     const capitalBox = this.reconcileCapitalBox();
-
-    if (updatedLoan) {
-      supabaseSyncService.syncUpPayment(affectedInstallments, updatedLoan, tx, capitalBox);
-    }
+    supabaseSyncService.syncUpPayment(installment, loan, tx, capitalBox);
 
     return installment;
   },
 
-  // CAPITAL BOX
+  // CAPITAL BOX (CAJA DE CAPITAL)
   reconcileCapitalBox(initialCapOverride?: number): CapitalBox {
     const rawBox = this.getCapitalBox();
     const initialCap = initialCapOverride !== undefined ? initialCapOverride : rawBox.initialCapital;
@@ -403,19 +406,21 @@ export const storageService = {
     const installments = this.getInstallments();
     const transactions = this.getTransactions();
     const reconciledBox = computeCapitalBox(initialCap, loans, installments, transactions);
-    localStorage.setItem(CAPITAL_KEY, JSON.stringify(reconciledBox));
+    reconciledBox.userId = currentUserId || undefined;
+    localStorage.setItem(getKey('capital'), JSON.stringify(reconciledBox));
     return reconciledBox;
   },
 
   getCapitalBox(): CapitalBox {
     this.initializeData();
-    const data = localStorage.getItem(CAPITAL_KEY);
+    const data = localStorage.getItem(getKey('capital'));
     const defaultBox: CapitalBox = {
       initialCapital: 0,
       currentCapital: 0,
       totalLent: 0,
       totalRecovered: 0,
-      totalInterestRecovered: 0
+      totalInterestRecovered: 0,
+      userId: currentUserId || undefined
     };
     return data ? JSON.parse(data) : defaultBox;
   },
@@ -439,7 +444,7 @@ export const storageService = {
   // TRANSACTIONS
   getTransactions(): CapitalTransaction[] {
     this.initializeData();
-    const data = localStorage.getItem(TRANSACTIONS_KEY);
+    const data = localStorage.getItem(getKey('transactions'));
     return data ? JSON.parse(data) : [];
   },
 
@@ -448,16 +453,18 @@ export const storageService = {
     const newTx: CapitalTransaction = {
       ...tx,
       id: 'tx_' + Math.random().toString(36).substr(2, 9),
+      userId: currentUserId || undefined,
       date: new Date().toISOString().replace('T', ' ').split('.')[0]
     };
     txs.push(newTx);
-    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(txs));
+    localStorage.setItem(getKey('transactions'), JSON.stringify(txs));
     return newTx;
   },
 
   // BACKUP (IMPORT / EXPORT)
   exportBackup(): string {
     const backup = {
+      userId: currentUserId,
       clients: this.getClients(),
       loans: this.getLoans(),
       installments: this.getInstallments(),
@@ -471,12 +478,12 @@ export const storageService = {
     try {
       const backup = JSON.parse(backupStr);
       if (backup.clients && backup.loans && backup.installments && backup.capital) {
-        localStorage.setItem(CLIENTS_KEY, JSON.stringify(backup.clients));
-        localStorage.setItem(LOANS_KEY, JSON.stringify(backup.loans));
-        localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(backup.installments));
-        localStorage.setItem(CAPITAL_KEY, JSON.stringify(backup.capital));
+        localStorage.setItem(getKey('clients'), JSON.stringify(backup.clients));
+        localStorage.setItem(getKey('loans'), JSON.stringify(backup.loans));
+        localStorage.setItem(getKey('installments'), JSON.stringify(backup.installments));
+        localStorage.setItem(getKey('capital'), JSON.stringify(backup.capital));
         if (backup.transactions) {
-          localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(backup.transactions));
+          localStorage.setItem(getKey('transactions'), JSON.stringify(backup.transactions));
         }
         supabaseSyncService.pushAllLocalToRemote();
       } else {

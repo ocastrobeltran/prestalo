@@ -2,6 +2,7 @@ export type PaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 
 export interface Client {
   id: string;
+  userId?: string;
   name: string;
   phone: string;
   documentId: string;
@@ -12,6 +13,7 @@ export interface Client {
 
 export interface Loan {
   id: string;
+  userId?: string;
   clientId: string;
   clientName: string;
   capital: number;             // Capital prestado original (ej: $1.000.000)
@@ -27,6 +29,7 @@ export interface Loan {
 
 export interface Installment {
   id: string;
+  userId?: string;
   loanId: string;
   clientId: string;
   clientName: string;
@@ -49,6 +52,8 @@ export interface Installment {
 }
 
 export interface CapitalBox {
+  id?: string;
+  userId?: string;
   initialCapital: number;      // Mi capital inicial configurado
   currentCapital: number;      // Capital disponible en caja para prestar
   totalLent: number;           // Capital actual prestado y en la calle
@@ -58,9 +63,23 @@ export interface CapitalBox {
 
 export interface CapitalTransaction {
   id: string;
+  userId?: string;
   amount: number;
   type: 'income' | 'expense' | 'initial' | 'loan_disbursement' | 'installment_payment';
   description: string;
   date: string;                // YYYY-MM-DD HH:mm:ss
   referenceId?: string;        // ID del préstamo o cliente relacionado
+}
+
+export type SubscriptionTier = 'free' | 'pro';
+export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due' | 'expired';
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  tier: SubscriptionTier;
+  status: SubscriptionStatus;
+  trialEndsAt: string;         // ISO date string
+  currentPeriodEnd?: string | null;
+  createdAt?: string;
 }

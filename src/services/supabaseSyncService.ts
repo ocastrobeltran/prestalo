@@ -1,17 +1,25 @@
 import { supabase } from './supabaseClient';
-import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
+import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserSubscription } from '../types';
 import { getPaidBreakdownForInstallment, addMonths } from './loanCalculator';
 
 // Claves locales sincronizadas con storageService
-const CLIENTS_KEY = 'prestalo_clients';
-const LOANS_KEY = 'prestalo_loans';
-const INSTALLMENTS_KEY = 'prestalo_installments';
-const CAPITAL_KEY = 'prestalo_capital';
-const TRANSACTIONS_KEY = 'prestalo_transactions';
+let currentUserId: string | null = null;
 
-const getLocal = <T>(key: string, fallback: T): T => {
-  const d = localStorage.getItem(key);
+export const setSyncUserId = (userId: string | null) => {
+  currentUserId = userId;
+};
+
+const getKey = (baseKey: string) => {
+  return currentUserId ? `prestalo_${currentUserId}_${baseKey}` : `prestalo_${baseKey}`;
+};
+
+const getLocal = <T>(baseKey: string, fallback: T): T => {
+  const d = localStorage.getItem(getKey(baseKey));
   return d ? JSON.parse(d) : fallback;
+};
+
+const setLocal = <T>(baseKey: string, value: T): void => {
+  localStorage.setItem(getKey(baseKey), JSON.stringify(value));
 };
 
 const defaultBox: CapitalBox = { initialCapital: 0, currentCapital: 0, totalLent: 0, totalRecovered: 0, totalInterestRecovered: 0 };
@@ -59,9 +67,10 @@ export const computeCapitalBox = (
   };
 };
 
-// Mappers TS <-> DB
-const toDbClient = (c: Client) => ({
+// Mappers TS <-> DB con aislamiento por user_id
+const toDbClient = (c: Client, userId?: string) => ({
   id: c.id,
+  user_id: c.userId || userId || currentUserId,
   name: c.name,
   phone: c.phone,
   document_id: c.documentId,
@@ -72,6 +81,7 @@ const toDbClient = (c: Client) => ({
 
 const fromDbClient = (row: any): Client => ({
   id: row.id,
+  userId: row.user_id,
   name: row.name,
   phone: row.phone,
   documentId: row.document_id,
@@ -80,8 +90,9 @@ const fromDbClient = (row: any): Client => ({
   status: row.status
 });
 
-const toDbLoan = (l: Loan) => ({
+const toDbLoan = (l: Loan, userId?: string) => ({
   id: l.id,
+  user_id: l.userId || userId || currentUserId,
   client_id: l.clientId,
   client_name: l.clientName,
   capital: l.capital,
@@ -96,6 +107,7 @@ const toDbLoan = (l: Loan) => ({
 
 const fromDbLoan = (row: any): Loan => ({
   id: row.id,
+  userId: row.user_id,
   clientId: row.client_id,
   clientName: row.client_name,
   capital: Number(row.capital),
@@ -108,8 +120,9 @@ const fromDbLoan = (row: any): Loan => ({
   status: row.status
 });
 
-const toDbInstallment = (i: Installment) => ({
+const toDbInstallment = (i: Installment, userId?: string) => ({
   id: i.id,
+  user_id: i.userId || userId || currentUserId,
   loan_id: i.loanId,
   client_id: i.clientId,
   client_name: i.clientName,
@@ -129,8 +142,9 @@ const toDbInstallment = (i: Installment) => ({
   status: i.status
 });
 
-const toBaseDbInstallment = (i: Installment) => ({
+const toBaseDbInstallment = (i: Installment, userId?: string) => ({
   id: i.id,
+  user_id: i.userId || userId || currentUserId,
   loan_id: i.loanId,
   client_id: i.clientId,
   client_name: i.clientName,
@@ -143,13 +157,13 @@ const toBaseDbInstallment = (i: Installment) => ({
   status: i.status
 });
 
-const safeUpsertInstallments = async (installments: Installment[]): Promise<void> => {
+const safeUpsertInstallments = async (installments: Installment[], userId?: string): Promise<void> => {
   if (installments.length === 0) return;
-  const fullRows = installments.map(toDbInstallment);
+  const fullRows = installments.map(i => toDbInstallment(i, userId));
   const { error } = await supabase.from('installments').upsert(fullRows);
   if (error) {
     console.warn('Upsert extendido de installments falló, reintentando con esquema base:', error.message);
-    const baseRows = installments.map(toBaseDbInstallment);
+    const baseRows = installments.map(i => toBaseDbInstallment(i, userId));
     const { error: baseError } = await supabase.from('installments').upsert(baseRows);
     if (baseError) {
       console.error('Error definitivo al persistir cuotas en Supabase:', baseError);
@@ -160,6 +174,7 @@ const safeUpsertInstallments = async (installments: Installment[]): Promise<void
 
 const fromDbInstallment = (row: any): Installment => ({
   id: row.id,
+  userId: row.user_id,
   loanId: row.loan_id,
   clientId: row.client_id,
   clientName: row.client_name,
@@ -179,16 +194,22 @@ const fromDbInstallment = (row: any): Installment => ({
   status: row.status
 });
 
-const toDbCapitalBox = (cb: CapitalBox) => ({
-  id: 'main_box',
-  initial_capital: cb.initialCapital,
-  current_capital: cb.currentCapital,
-  total_lent: cb.totalLent,
-  total_recovered: cb.totalRecovered,
-  total_interest_recovered: cb.totalInterestRecovered
-});
+const toDbCapitalBox = (cb: CapitalBox, userId?: string) => {
+  const uid = userId || cb.userId || currentUserId;
+  return {
+    id: cb.id || (uid ? `box_${uid}` : 'main_box'),
+    user_id: uid,
+    initial_capital: cb.initialCapital,
+    current_capital: cb.currentCapital,
+    total_lent: cb.totalLent,
+    total_recovered: cb.totalRecovered,
+    total_interest_recovered: cb.totalInterestRecovered
+  };
+};
 
 const fromDbCapitalBox = (row: any): CapitalBox => ({
+  id: row.id,
+  userId: row.user_id,
   initialCapital: Number(row.initial_capital),
   currentCapital: Number(row.current_capital),
   totalLent: Number(row.total_lent),
@@ -196,8 +217,9 @@ const fromDbCapitalBox = (row: any): CapitalBox => ({
   totalInterestRecovered: Number(row.total_interest_recovered)
 });
 
-const toDbTransaction = (t: CapitalTransaction) => ({
+const toDbTransaction = (t: CapitalTransaction, userId?: string) => ({
   id: t.id,
+  user_id: t.userId || userId || currentUserId,
   amount: t.amount,
   type: t.type,
   description: t.description,
@@ -207,6 +229,7 @@ const toDbTransaction = (t: CapitalTransaction) => ({
 
 const fromDbTransaction = (row: any): CapitalTransaction => ({
   id: row.id,
+  userId: row.user_id,
   amount: Number(row.amount),
   type: row.type,
   description: row.description,
@@ -244,7 +267,88 @@ export const supabaseSyncService = {
     return navigator.onLine;
   },
 
-  // Descargar datos de Supabase y actualizar localStorage
+  // Obtener ID del usuario autenticado
+  async getAuthUserId(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      currentUserId = session.user.id;
+      return session.user.id;
+    }
+    return null;
+  },
+
+  // Obtener la suscripción del usuario actual
+  async fetchUserSubscription(): Promise<UserSubscription | null> {
+    const userId = await this.getAuthUserId();
+    if (!userId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No existe registro, auto-crear prueba de 30 días
+          const trialEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: newSub, error: createErr } = await supabase
+            .from('user_subscriptions')
+            .insert({
+              user_id: userId,
+              tier: 'free',
+              status: 'trialing',
+              trial_ends_at: trialEnd
+            })
+            .select()
+            .single();
+
+          if (createErr) {
+            console.warn('Error al auto-crear suscripción:', createErr);
+            return {
+              id: 'local_sub',
+              userId,
+              tier: 'free',
+              status: 'trialing',
+              trialEndsAt: trialEnd
+            };
+          }
+
+          return {
+            id: newSub.id,
+            userId: newSub.user_id,
+            tier: newSub.tier,
+            status: newSub.status,
+            trialEndsAt: newSub.trial_ends_at,
+            currentPeriodEnd: newSub.current_period_end
+          };
+        }
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        tier: data.tier,
+        status: data.status,
+        trialEndsAt: data.trial_ends_at,
+        currentPeriodEnd: data.current_period_end
+      };
+    } catch (err) {
+      console.error('Error al obtener suscripción de Supabase:', err);
+      // Fallback a trial local
+      return {
+        id: 'fallback_sub',
+        userId,
+        tier: 'free',
+        status: 'trialing',
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      };
+    }
+  },
+
+  // Descargar datos de Supabase y actualizar localStorage del usuario
   async syncDown(onComplete?: () => void): Promise<boolean> {
     if (!this.isOnline()) {
       this.setStatus('offline');
@@ -253,22 +357,37 @@ export const supabaseSyncService = {
 
     try {
       this.setStatus('syncing');
+      const userId = await this.getAuthUserId();
 
-      // Consultar clientes en Supabase
-      const { data: clientsData, error: clientsErr } = await supabase.from('clients').select('*');
+      // Consultar clientes en Supabase (filtrados por RLS o user_id)
+      let clientsQuery = supabase.from('clients').select('*');
+      if (userId) clientsQuery = clientsQuery.eq('user_id', userId);
+      const { data: clientsData, error: clientsErr } = await clientsQuery;
       if (clientsErr) throw clientsErr;
 
-      // Descargar el resto de tablas de Supabase para mantener sincronizado
-      const { data: loansData, error: loansErr } = await supabase.from('loans').select('*');
+      // Descargar préstamos
+      let loansQuery = supabase.from('loans').select('*');
+      if (userId) loansQuery = loansQuery.eq('user_id', userId);
+      const { data: loansData, error: loansErr } = await loansQuery;
       if (loansErr) throw loansErr;
 
-      const { data: instData, error: instErr } = await supabase.from('installments').select('*');
+      // Descargar cuotas
+      let instQuery = supabase.from('installments').select('*');
+      if (userId) instQuery = instQuery.eq('user_id', userId);
+      const { data: instData, error: instErr } = await instQuery;
       if (instErr) throw instErr;
 
-      const { data: boxData, error: boxErr } = await supabase.from('capital_box').select('*').eq('id', 'main_box').single();
-      if (boxErr && boxErr.code !== 'PGRST116') console.warn('Caja no encontrada en remote', boxErr);
+      // Descargar caja de capital
+      let boxQuery = supabase.from('capital_box').select('*');
+      if (userId) boxQuery = boxQuery.eq('user_id', userId);
+      const { data: boxDataList, error: boxErr } = await boxQuery;
+      if (boxErr) console.warn('Caja no encontrada en remote', boxErr);
+      const boxData = boxDataList && boxDataList.length > 0 ? boxDataList[0] : null;
 
-      const { data: txData, error: txErr } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      // Descargar transacciones
+      let txQuery = supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (userId) txQuery = txQuery.eq('user_id', userId);
+      const { data: txData, error: txErr } = await txQuery;
       if (txErr) throw txErr;
 
       // Mapear datos descargados
@@ -300,18 +419,21 @@ export const supabaseSyncService = {
         };
       });
 
-      const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>(CAPITAL_KEY, defaultBox);
-      // Reconciliar dinámicamente la caja de capital para asegurar coherencia matemática
+      const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>('capital', defaultBox);
       const capitalBox = computeCapitalBox(rawBox.initialCapital || 0, loans, installments, transactions);
+      capitalBox.id = boxData?.id || rawBox.id || (userId ? `box_${userId}` : 'main_box');
+      capitalBox.userId = userId || undefined;
 
-      localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
-      localStorage.setItem(LOANS_KEY, JSON.stringify(loans));
-      localStorage.setItem(INSTALLMENTS_KEY, JSON.stringify(installments));
-      localStorage.setItem(CAPITAL_KEY, JSON.stringify(capitalBox));
-      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+      setLocal('clients', clients);
+      setLocal('loans', loans);
+      setLocal('installments', installments);
+      setLocal('capital', capitalBox);
+      setLocal('transactions', transactions);
 
-      // Asegurar que la caja reconciliada esté guardada en Supabase
-      supabase.from('capital_box').upsert(toDbCapitalBox(capitalBox)).then();
+      if (userId && !boxData) {
+        // Solo registrar remotamente si aún no existía en Supabase
+        supabase.from('capital_box').upsert(toDbCapitalBox(capitalBox, userId)).then();
+      }
 
       this.setStatus('synced');
       window.dispatchEvent(new Event('prestalo_sync_updated'));
@@ -324,16 +446,17 @@ export const supabaseSyncService = {
     }
   },
 
-  // Subir todo el localStorage a Supabase (inicialización o rescate)
+  // Subir todo el localStorage a Supabase (inicialización o importación de respaldo)
   async pushAllLocalToRemote(): Promise<void> {
     if (!this.isOnline()) return;
 
     try {
-      const clients = getLocal<Client[]>(CLIENTS_KEY, []).map(toDbClient);
-      const loans = getLocal<Loan[]>(LOANS_KEY, []).map(toDbLoan);
-      const installments = getLocal<Installment[]>(INSTALLMENTS_KEY, []);
-      const capitalBox = toDbCapitalBox(getLocal<CapitalBox>(CAPITAL_KEY, defaultBox));
-      const transactions = getLocal<CapitalTransaction[]>(TRANSACTIONS_KEY, []).map(toDbTransaction);
+      const userId = await this.getAuthUserId();
+      const clients = getLocal<Client[]>('clients', []).map(c => toDbClient(c, userId || undefined));
+      const loans = getLocal<Loan[]>('loans', []).map(l => toDbLoan(l, userId || undefined));
+      const installments = getLocal<Installment[]>('installments', []);
+      const capitalBox = toDbCapitalBox(getLocal<CapitalBox>('capital', defaultBox), userId || undefined);
+      const transactions = getLocal<CapitalTransaction[]>('transactions', []).map(t => toDbTransaction(t, userId || undefined));
 
       if (clients.length > 0) {
         const { error } = await supabase.from('clients').upsert(clients);
@@ -344,7 +467,7 @@ export const supabaseSyncService = {
         if (error) console.error('Error en push loans:', error);
       }
       if (installments.length > 0) {
-        await safeUpsertInstallments(installments);
+        await safeUpsertInstallments(installments, userId || undefined);
       }
       const { error: boxErr } = await supabase.from('capital_box').upsert(capitalBox);
       if (boxErr) console.error('Error en push capital_box:', boxErr);
@@ -353,8 +476,6 @@ export const supabaseSyncService = {
         const { error: txErr } = await supabase.from('transactions').upsert(transactions);
         if (txErr) console.error('Error en push transactions:', txErr);
       }
-
-      console.log('Sincronización inicial hacia Supabase completada.');
     } catch (err) {
       console.error('Error en pushAllLocalToRemote:', err);
     }
@@ -365,7 +486,8 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      const { error } = await supabase.from('clients').upsert(toDbClient(client));
+      const userId = await this.getAuthUserId();
+      const { error } = await supabase.from('clients').upsert(toDbClient(client, userId || undefined));
       if (error) throw error;
       this.setStatus('synced');
     } catch (err) {
@@ -391,15 +513,16 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan));
+      const userId = await this.getAuthUserId();
+      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan, userId || undefined));
       if (loanErr) throw loanErr;
 
-      await safeUpsertInstallments(installments);
+      await safeUpsertInstallments(installments, userId || undefined);
 
-      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
       if (txErr) throw txErr;
 
-      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box, userId || undefined));
       if (boxErr) throw boxErr;
 
       this.setStatus('synced');
@@ -413,15 +536,16 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
+      const userId = await this.getAuthUserId();
       const { error: loanErr } = await supabase.from('loans').delete().eq('id', id);
       if (loanErr) throw loanErr;
 
       if (tx) {
-        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
         if (txErr) throw txErr;
       }
       if (box) {
-        const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+        const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box, userId || undefined));
         if (boxErr) throw boxErr;
       }
       this.setStatus('synced');
@@ -435,16 +559,17 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
+      const userId = await this.getAuthUserId();
       const installmentsList = Array.isArray(inst) ? inst : [inst];
-      await safeUpsertInstallments(installmentsList);
+      await safeUpsertInstallments(installmentsList, userId || undefined);
 
-      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan));
+      const { error: loanErr } = await supabase.from('loans').upsert(toDbLoan(loan, userId || undefined));
       if (loanErr) throw loanErr;
 
-      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
       if (txErr) throw txErr;
 
-      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box, userId || undefined));
       if (boxErr) throw boxErr;
 
       this.setStatus('synced');
@@ -458,11 +583,12 @@ export const supabaseSyncService = {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
-      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box));
+      const userId = await this.getAuthUserId();
+      const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box, userId || undefined));
       if (boxErr) throw boxErr;
 
       if (tx) {
-        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx));
+        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
         if (txErr) throw txErr;
       }
       this.setStatus('synced');

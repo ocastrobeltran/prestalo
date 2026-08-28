@@ -392,24 +392,27 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .summary-icon-box.icon-green {
-          background-color: rgba(16, 185, 129, 0.15);
-          color: #10b981;
+          background-color: rgba(0, 242, 157, 0.12);
+          color: #00F29D;
+          border: 1px solid rgba(0, 242, 157, 0.25);
         }
 
         .summary-icon-box.icon-orange {
-          background-color: rgba(249, 115, 22, 0.15);
-          color: #ea580c;
+          background-color: rgba(249, 115, 22, 0.12);
+          color: #f97316;
+          border: 1px solid rgba(249, 115, 22, 0.25);
         }
 
         .summary-icon-box.icon-red {
-          background-color: rgba(239, 68, 68, 0.15);
-          color: #dc2626;
+          background-color: rgba(255, 56, 92, 0.12);
+          color: #ff385c;
+          border: 1px solid rgba(255, 56, 92, 0.25);
         }
 
         .summary-card-content {
           display: flex;
           flex-direction: column;
-          gap: 1px;
+          gap: 2px;
         }
 
         .summary-val {
@@ -417,13 +420,14 @@ export const Home: React.FC<HomeProps> = ({
           font-size: 19px;
           font-weight: 800;
           line-height: 1.25;
+          letter-spacing: -0.3px;
         }
 
         .summary-val.default { color: var(--text-primary); }
-        .summary-val.amber { color: #d97706; }
-        .summary-val.green { color: #10b981; }
-        .summary-val.orange { color: #ea580c; }
-        .summary-val.red { color: #dc2626; }
+        .summary-val.amber { color: #fbbf24; }
+        .summary-val.green { color: #00F29D; }
+        .summary-val.orange { color: #f97316; }
+        .summary-val.red { color: #ff385c; }
 
         .summary-title {
           font-size: 13px;
@@ -447,7 +451,7 @@ export const Home: React.FC<HomeProps> = ({
 
         .text-btn {
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           color: var(--primary);
         }
 
@@ -466,13 +470,15 @@ export const Home: React.FC<HomeProps> = ({
         .capital-lbl {
           font-size: 12px;
           color: var(--text-secondary);
+          font-weight: 500;
         }
 
         .capital-val-large {
           font-family: var(--font-heading);
-          font-size: 24px;
+          font-size: 26px;
           font-weight: 800;
           color: var(--text-primary);
+          letter-spacing: -0.5px;
         }
 
         .capital-divider {
@@ -495,11 +501,13 @@ export const Home: React.FC<HomeProps> = ({
         .sub-lbl {
           font-size: 11px;
           color: var(--text-tertiary);
+          font-weight: 500;
         }
 
         .sub-val {
-          font-size: 14px;
-          font-weight: 700;
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: -0.2px;
         }
 
         .sub-val.success { color: var(--success); }
@@ -513,13 +521,18 @@ export const Home: React.FC<HomeProps> = ({
 
         .capital-edit-form input {
           width: 100%;
-          padding: 12px;
-          border-radius: 10px;
+          padding: 12px 14px;
+          border-radius: 12px;
           border: 1px solid var(--border-color);
           background-color: var(--bg-input);
           color: var(--text-primary);
           font-size: 16px;
           outline: none;
+          transition: border-color 0.2s;
+        }
+
+        .capital-edit-form input:focus {
+          border-color: var(--primary);
         }
 
         .capital-form-btns {
@@ -530,36 +543,38 @@ export const Home: React.FC<HomeProps> = ({
 
         .capital-form-btns button {
           padding: 8px 16px;
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
         }
 
         .btn-cancel {
-          background-color: var(--border-color);
+          background-color: var(--bg-elevated);
           color: var(--text-secondary);
+          border: 1px solid var(--border-color);
         }
 
         .btn-save {
-          background-color: var(--primary);
-          color: white;
+          background: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
+          color: #070A12;
+          box-shadow: 0 4px 12px rgba(0, 242, 157, 0.25);
         }
 
         .alert-banner {
-          background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
-          border: 1px solid rgba(245, 158, 11, 0.25);
-          color: var(--warning);
-          padding: 14px;
-          border-radius: 12px;
+          background: rgba(251, 191, 36, 0.08);
+          border: 1px solid rgba(251, 191, 36, 0.25);
+          color: #fbbf24;
+          padding: 14px 16px;
+          border-radius: 14px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           cursor: pointer;
-          transition: transform 0.2s;
+          transition: transform 0.2s ease, background-color 0.2s ease;
         }
 
-        .alert-banner:hover {
-          transform: scale(1.01);
+        .alert-banner:active {
+          transform: scale(0.98);
         }
 
         .alert-content {
@@ -574,12 +589,12 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .quick-actions-section h4 {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 800;
+          color: var(--text-tertiary);
           margin-bottom: 12px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
         }
 
         .quick-actions-grid {
@@ -590,7 +605,7 @@ export const Home: React.FC<HomeProps> = ({
 
         .quick-btn-card {
           height: 100px;
-          border-radius: 16px;
+          border-radius: 18px;
           display: flex;
           flex-direction: column;
           justify-content: center;
@@ -600,17 +615,40 @@ export const Home: React.FC<HomeProps> = ({
           box-shadow: var(--shadow-md);
           padding: 12px;
           text-align: center;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .quick-btn-card:active {
+          transform: scale(0.95);
         }
 
         .quick-btn-card span {
           font-size: 13px;
           font-weight: 700;
+          letter-spacing: -0.1px;
         }
 
-        .blue-gradient { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
-        .green-gradient { background: linear-gradient(135deg, #10b981, #059669); }
-        .orange-gradient { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .purple-gradient { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+        .blue-gradient { 
+          background: linear-gradient(135deg, #1E293B, #0F172A);
+          border: 1px solid rgba(56, 189, 248, 0.25);
+          color: #38BDF8;
+        }
+        .green-gradient { 
+          background: linear-gradient(135deg, #064E3B, #065F46);
+          border: 1px solid rgba(0, 242, 157, 0.35);
+          color: #00F29D;
+        }
+        .orange-gradient { 
+          background: linear-gradient(135deg, #451A03, #78350F);
+          border: 1px solid rgba(251, 191, 36, 0.25);
+          color: #FBBF24;
+        }
+        .purple-gradient { 
+          background: linear-gradient(135deg, #2E1065, #4C1D95);
+          border: 1px solid rgba(168, 85, 247, 0.25);
+          color: #C084FC;
+        }
       `}</style>
     </div>
   );
