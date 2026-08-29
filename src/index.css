@@ -1,70 +1,102 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Design System: Aurora Mint & Obsidian Titanium */
+  /* ==============================================================================
+     LIGHT THEME VARIABLES (ALTO CONTRASTE - WCAG AAA)
+     ============================================================================== */
+  --primary-rgb: 5, 150, 105; /* #059669 (Deep Emerald Mint) */
+  --primary: rgb(var(--primary-rgb));
+  --primary-hover: #047857;
+  --primary-glow: rgba(5, 150, 105, 0.22);
+  
+  --success-rgb: 5, 150, 105; /* #059669 */
+  --success: rgb(var(--success-rgb));
+  
+  --warning-rgb: 217, 119, 6; /* #D97706 (Deep Amber) */
+  --warning: rgb(var(--warning-rgb));
+  
+  --danger-rgb: 225, 29, 72; /* #E11D48 (Deep Crimson) */
+  --danger: rgb(var(--danger-rgb));
+  
+  --info-rgb: 2, 132, 199; /* #0284C7 (Deep Cyber Sky) */
+  --info: rgb(var(--info-rgb));
+
+  --accent-purple-rgb: 124, 58, 237; /* #7C3AED */
+  --accent-purple: rgb(var(--accent-purple-rgb));
+  
+  /* Superficies y Fondos Claro */
+  --bg-app: #f1f5f9;
+  --bg-container: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-elevated: #f1f5f9;
+  
+  /* Textos de Alto Contraste en Claro */
+  --text-primary: #0f172a;   /* Slate 900 - Máxima legibilidad */
+  --text-secondary: #334155; /* Slate 700 - Contraste nítido */
+  --text-tertiary: #64748b;  /* Slate 500 - Legible */
+  
+  /* Bordes y Sombras */
+  --border-color: #cbd5e1;   /* Slate 300 - Definición clara de tarjetas */
+  --border-subtle: #e2e8f0;
+  --shadow-sm: 0 2px 4px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 16px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.94);
+  --glass-border: rgba(203, 213, 225, 0.9);
+  
+  --btn-primary-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --btn-primary-text: #ffffff;
+  
+  /* Fuentes */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+}
+
+/* ==============================================================================
+   DARK THEME VARIABLES - OBSIDIAN TITANIUM (OLED HIGH CONTRAST)
+   ============================================================================== */
+.dark {
   --primary-rgb: 0, 242, 157; /* #00F29D (Aurora Mint) */
   --primary: rgb(var(--primary-rgb));
-  --primary-hover: #00d68a;
+  --primary-hover: #1dfbb0;
   --primary-glow: rgba(0, 242, 157, 0.25);
   
   --success-rgb: 0, 242, 157;
   --success: rgb(var(--success-rgb));
   
-  --warning-rgb: 251, 191, 36; /* #fbbf24 (Solar Amber) */
+  --warning-rgb: 251, 191, 36; /* #FBBF24 (Solar Amber) */
   --warning: rgb(var(--warning-rgb));
   
-  --danger-rgb: 255, 56, 92; /* #ff385c (Crimson Pulse) */
+  --danger-rgb: 255, 56, 92; /* #FF385C (Crimson Pulse) */
   --danger: rgb(var(--danger-rgb));
   
-  --info-rgb: 56, 189, 248; /* #38bdf8 (Cyber Blue) */
+  --info-rgb: 56, 189, 248; /* #38BDF8 (Cyber Sky) */
   --info: rgb(var(--info-rgb));
 
-  --accent-purple-rgb: 139, 92, 246; /* #8b5cf6 */
+  --accent-purple-rgb: 139, 92, 246; /* #8B5CF6 */
   --accent-purple: rgb(var(--accent-purple-rgb));
-  
-  /* Light Theme Variables */
-  --bg-app: #f4f7fb;
-  --bg-container: #ffffff;
-  --bg-card: #ffffff;
-  --bg-input: #edf2f7;
-  --bg-elevated: #f8fafc;
-  --text-primary: #0b1329;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --border-color: #e2e8f0;
-  --border-subtle: #edf2f7;
-  --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 6px 16px -2px rgba(11, 19, 41, 0.06), 0 2px 6px -1px rgba(11, 19, 41, 0.04);
-  --shadow-lg: 0 16px 32px -4px rgba(11, 19, 41, 0.08), 0 4px 12px -2px rgba(11, 19, 41, 0.04);
-  --glass-bg: rgba(255, 255, 255, 0.88);
-  --glass-border: rgba(226, 232, 240, 0.8);
-  
-  /* Fonts */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Outfit', sans-serif;
-}
-
-/* Dark Theme Variables - Obsidian Titanium (Default & Signature) */
-.dark {
-  --primary-rgb: 0, 242, 157; /* #00F29D */
-  --primary: rgb(var(--primary-rgb));
-  --primary-hover: #1dfbb0;
   
   --bg-app: #070a12; /* Deep Obsidian */
   --bg-container: #0c111e; /* Obsidian Canvas */
   --bg-card: #111828; /* Titanium Card Surface */
-  --bg-input: #162035; /* Crisp Input Field */
+  --bg-input: #162035; /* Input Field */
   --bg-elevated: #1a243c; /* Floating Active Layer */
+  
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-subtle: rgba(255, 255, 255, 0.04);
+  
+  --border-color: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.05);
   --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 20px -2px rgba(0, 0, 0, 0.5), 0 2px 6px -1px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 20px 40px -4px rgba(0, 0, 0, 0.65), 0 6px 16px -2px rgba(0, 0, 0, 0.45);
-  --glass-bg: rgba(12, 17, 30, 0.88);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(12, 17, 30, 0.90);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  
+  --btn-primary-bg: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
+  --btn-primary-text: #070A12;
 }
 
 * {
@@ -89,7 +121,7 @@ body {
 /* Contenedor Móvil (Comportamiento híbrido PWA/Nativo) */
 #root {
   width: 100%;
-  max-width: 480px; /* Simulación de teléfono en escritorio */
+  max-width: 480px;
   height: 100vh;
   height: 100dvh;
   background-color: var(--bg-app);
@@ -120,21 +152,21 @@ main {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: calc(96px + env(safe-area-inset-bottom)); /* Espacio para el BottomNav */
-  scrollbar-width: none; /* Ocultar scroll en Firefox */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
 main::-webkit-scrollbar {
-  display: none; /* Ocultar scroll en Chrome/Safari */
+  display: none;
 }
 
 /* Tipografías */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -142,7 +174,6 @@ p, span, input, button, select, textarea {
   font-family: var(--font-sans);
 }
 
-/* Botón flotante y botones de acción */
 button {
   cursor: pointer;
   border: none;
@@ -153,20 +184,6 @@ button {
 
 button:active {
   transform: scale(0.96);
-}
-
-/* Estilos PWA e instalabilidad */
-.pwa-banner {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: white;
-  padding: 12px 16px;
-  border-radius: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 8px;
-  animation: slideUp 0.4s ease-out;
 }
 
 /* Animaciones */
@@ -197,15 +214,6 @@ button:active {
   }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(0, 242, 157, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(0, 242, 157, 0.45);
-  }
-}
-
 .animate-slide-up {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -232,8 +240,8 @@ button:active {
 }
 
 .aurora-btn-primary {
-  background: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
-  color: #070A12;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   font-weight: 700;
   font-size: 15px;
   border-radius: 14px;
@@ -242,7 +250,7 @@ button:active {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 6px 20px rgba(0, 242, 157, 0.3);
+  box-shadow: 0 6px 20px var(--primary-glow);
   transition: all 0.2s ease;
 }
 
@@ -251,7 +259,7 @@ button:active {
   filter: brightness(0.95);
 }
 
-/* Badges Exclusivos */
+/* Badges Exclusivos con Alto Contraste */
 .badge-status {
   padding: 4px 10px;
   border-radius: 20px;
@@ -264,27 +272,27 @@ button:active {
 }
 
 .badge-status.paid {
-  background: rgba(0, 242, 157, 0.12);
-  color: #00F29D;
-  border: 1px solid rgba(0, 242, 157, 0.3);
+  background: rgba(var(--success-rgb), 0.12);
+  color: var(--success);
+  border: 1px solid rgba(var(--success-rgb), 0.3);
 }
 
 .badge-status.pactada {
-  background: rgba(251, 191, 36, 0.12);
-  color: #FBBF24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(var(--warning-rgb), 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(var(--warning-rgb), 0.3);
 }
 
 .badge-status.overdue {
-  background: rgba(255, 56, 92, 0.12);
-  color: #FF385C;
-  border: 1px solid rgba(255, 56, 92, 0.3);
+  background: rgba(var(--danger-rgb), 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(var(--danger-rgb), 0.3);
 }
 
 .badge-status.pending {
-  background: rgba(56, 189, 248, 0.12);
-  color: #38BDF8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(var(--info-rgb), 0.12);
+  color: var(--info);
+  border: 1px solid rgba(var(--info-rgb), 0.3);
 }
 
 /* Estilos de Impresión en Recibos (PDF Nativos) */

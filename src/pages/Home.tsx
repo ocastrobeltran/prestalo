@@ -382,31 +382,31 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .summary-icon-box.icon-blue {
-          background-color: rgba(14, 165, 233, 0.12);
-          color: #0284c7;
+          background-color: rgba(var(--info-rgb), 0.12);
+          color: var(--info);
         }
 
         .summary-icon-box.icon-amber {
-          background-color: rgba(245, 158, 11, 0.15);
-          color: #d97706;
+          background-color: rgba(var(--warning-rgb), 0.15);
+          color: var(--warning);
         }
 
         .summary-icon-box.icon-green {
-          background-color: rgba(0, 242, 157, 0.12);
-          color: #00F29D;
-          border: 1px solid rgba(0, 242, 157, 0.25);
+          background-color: rgba(var(--success-rgb), 0.12);
+          color: var(--success);
+          border: 1px solid rgba(var(--success-rgb), 0.25);
         }
 
         .summary-icon-box.icon-orange {
-          background-color: rgba(249, 115, 22, 0.12);
-          color: #f97316;
-          border: 1px solid rgba(249, 115, 22, 0.25);
+          background-color: rgba(var(--warning-rgb), 0.12);
+          color: var(--warning);
+          border: 1px solid rgba(var(--warning-rgb), 0.25);
         }
 
         .summary-icon-box.icon-red {
-          background-color: rgba(255, 56, 92, 0.12);
-          color: #ff385c;
-          border: 1px solid rgba(255, 56, 92, 0.25);
+          background-color: rgba(var(--danger-rgb), 0.12);
+          color: var(--danger);
+          border: 1px solid rgba(var(--danger-rgb), 0.25);
         }
 
         .summary-card-content {
@@ -424,10 +424,10 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .summary-val.default { color: var(--text-primary); }
-        .summary-val.amber { color: #fbbf24; }
-        .summary-val.green { color: #00F29D; }
-        .summary-val.orange { color: #f97316; }
-        .summary-val.red { color: #ff385c; }
+        .summary-val.amber { color: var(--warning); }
+        .summary-val.green { color: var(--success); }
+        .summary-val.orange { color: var(--warning); }
+        .summary-val.red { color: var(--danger); }
 
         .summary-title {
           font-size: 13px;
@@ -555,15 +555,15 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .btn-save {
-          background: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
-          color: #070A12;
-          box-shadow: 0 4px 12px rgba(0, 242, 157, 0.25);
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
+          box-shadow: 0 4px 12px var(--primary-glow);
         }
 
         .alert-banner {
-          background: rgba(251, 191, 36, 0.08);
-          border: 1px solid rgba(251, 191, 36, 0.25);
-          color: #fbbf24;
+          background: rgba(var(--warning-rgb), 0.1);
+          border: 1px solid rgba(var(--warning-rgb), 0.3);
+          color: var(--warning);
           padding: 14px 16px;
           border-radius: 14px;
           display: flex;
@@ -630,24 +630,28 @@ export const Home: React.FC<HomeProps> = ({
         }
 
         .blue-gradient { 
-          background: linear-gradient(135deg, #1E293B, #0F172A);
-          border: 1px solid rgba(56, 189, 248, 0.25);
-          color: #38BDF8;
+          background: var(--bg-card);
+          border: 1px solid rgba(var(--info-rgb), 0.3);
+          color: var(--info);
+          box-shadow: var(--shadow-sm);
         }
         .green-gradient { 
-          background: linear-gradient(135deg, #064E3B, #065F46);
-          border: 1px solid rgba(0, 242, 157, 0.35);
-          color: #00F29D;
+          background: var(--bg-card);
+          border: 1px solid rgba(var(--success-rgb), 0.35);
+          color: var(--success);
+          box-shadow: var(--shadow-sm);
         }
         .orange-gradient { 
-          background: linear-gradient(135deg, #451A03, #78350F);
-          border: 1px solid rgba(251, 191, 36, 0.25);
-          color: #FBBF24;
+          background: var(--bg-card);
+          border: 1px solid rgba(var(--warning-rgb), 0.3);
+          color: var(--warning);
+          box-shadow: var(--shadow-sm);
         }
         .purple-gradient { 
-          background: linear-gradient(135deg, #2E1065, #4C1D95);
-          border: 1px solid rgba(168, 85, 247, 0.25);
-          color: #C084FC;
+          background: var(--bg-card);
+          border: 1px solid rgba(var(--accent-purple-rgb), 0.3);
+          color: var(--accent-purple);
+          box-shadow: var(--shadow-sm);
         }
       `}</style>
     </div>

@@ -314,7 +314,7 @@ export const Profile: React.FC<ProfileProps> = ({
         <div className="profile-sync-row">
           <div className="sync-status-display">
             {syncStatus === 'synced' ? (
-              <Cloud size={20} style={{ color: '#00F29D' }} />
+              <Cloud size={20} style={{ color: 'var(--success)' }} />
             ) : syncStatus === 'syncing' ? (
               <RefreshCw size={20} className="spin" style={{ color: '#38BDF8' }} />
             ) : syncStatus === 'offline' ? (
@@ -445,29 +445,29 @@ export const Profile: React.FC<ProfileProps> = ({
         }
 
         .profile-hero-card {
-          background: linear-gradient(135deg, rgba(17, 24, 40, 0.95), rgba(26, 36, 60, 0.85));
-          border: 1px solid rgba(0, 242, 157, 0.2);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 20px;
           padding: 20px;
           display: flex;
           align-items: center;
           gap: 16px;
           position: relative;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          box-shadow: var(--shadow-md);
         }
 
         .profile-avatar-circle {
           height: 60px;
           width: 60px;
           border-radius: 18px;
-          background: linear-gradient(135deg, #00F29D, #38BDF8);
-          color: #070A12;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
           font-size: 22px;
           font-weight: 800;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 16px rgba(0, 242, 157, 0.35);
+          box-shadow: 0 0 16px var(--primary-glow);
           flex-shrink: 0;
         }
 
@@ -507,9 +507,9 @@ export const Profile: React.FC<ProfileProps> = ({
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          background: rgba(0, 242, 157, 0.12);
-          border: 1px solid rgba(0, 242, 157, 0.3);
-          color: #00F29D;
+          background: rgba(var(--primary-rgb), 0.12);
+          border: 1px solid rgba(var(--primary-rgb), 0.3);
+          color: var(--primary);
           font-size: 11px;
           font-weight: 800;
           padding: 4px 8px;
@@ -517,9 +517,9 @@ export const Profile: React.FC<ProfileProps> = ({
         }
 
         .profile-success-banner {
-          background: rgba(0, 242, 157, 0.1);
-          border: 1px solid rgba(0, 242, 157, 0.3);
-          color: #00F29D;
+          background: rgba(var(--success-rgb), 0.12);
+          border: 1px solid rgba(var(--success-rgb), 0.3);
+          color: var(--success);
           padding: 10px 14px;
           border-radius: 12px;
           font-size: 13px;
@@ -609,8 +609,8 @@ export const Profile: React.FC<ProfileProps> = ({
         }
 
         .profile-save-btn {
-          background: var(--primary);
-          color: #070A12;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
           font-size: 13px;
           font-weight: 800;
           padding: 8px 16px;
@@ -618,6 +618,7 @@ export const Profile: React.FC<ProfileProps> = ({
           display: flex;
           align-items: center;
           gap: 6px;
+          box-shadow: 0 4px 12px var(--primary-glow);
         }
 
         .profile-sync-row {
@@ -678,9 +679,9 @@ export const Profile: React.FC<ProfileProps> = ({
         }
 
         .profile-action-btn.primary {
-          background: rgba(0, 242, 157, 0.12);
-          border-color: rgba(0, 242, 157, 0.3);
-          color: #00F29D;
+          background: rgba(var(--primary-rgb), 0.12);
+          border-color: rgba(var(--primary-rgb), 0.3);
+          color: var(--primary);
           font-weight: 700;
         }
 

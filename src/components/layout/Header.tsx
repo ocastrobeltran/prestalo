@@ -130,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
           {syncStatus === 'syncing' || isSyncingManual ? (
             <RefreshCw size={17} className="spin" />
           ) : syncStatus === 'synced' ? (
-            <Cloud size={17} style={{ color: '#00F29D' }} />
+            <Cloud size={17} style={{ color: 'var(--success)' }} />
           ) : syncStatus === 'offline' ? (
             <CloudOff size={17} style={{ color: '#94a3b8' }} />
           ) : (
