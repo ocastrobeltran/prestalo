@@ -1,4 +1,4 @@
-import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
+import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserProfile } from '../types';
 import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel } from './loanCalculator';
 import { supabaseSyncService, computeCapitalBox, setSyncUserId } from './supabaseSyncService';
 
@@ -30,9 +30,39 @@ export const storageService = {
       localStorage.removeItem(getKey('installments'));
       localStorage.removeItem(getKey('capital'));
       localStorage.removeItem(getKey('transactions'));
+      localStorage.removeItem(getKey('profile'));
     }
     currentUserId = null;
     setSyncUserId(null);
+  },
+
+  // USER PROFILE
+  getUserProfile(): UserProfile {
+    const data = localStorage.getItem(getKey('profile'));
+    if (data) {
+      try {
+        return JSON.parse(data);
+      } catch (e) {}
+    }
+    return {
+      fullName: '',
+      businessName: '',
+      phone: '',
+      email: '',
+      currencySymbol: '$'
+    };
+  },
+
+  saveUserProfile(profile: Partial<UserProfile>): UserProfile {
+    const current = this.getUserProfile();
+    const updated: UserProfile = {
+      ...current,
+      ...profile,
+      userId: currentUserId || undefined,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(getKey('profile'), JSON.stringify(updated));
+    return updated;
   },
 
   // Inicialización

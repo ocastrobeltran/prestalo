@@ -1,36 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Database, RefreshCw, Smartphone, Cloud, CloudOff, LogOut, Crown, ShieldCheck, FileText, Trash2 } from 'lucide-react';
-import { storageService } from '../../services/storageService';
+import { Sun, Moon, RefreshCw, Smartphone, Cloud, CloudOff, User } from 'lucide-react';
 import { supabaseSyncService } from '../../services/supabaseSyncService';
-import { supabase } from '../../services/supabaseClient';
 import type { SyncStatus } from '../../services/supabaseSyncService';
-import { useSubscription } from '../../contexts/SubscriptionContext';
 
 interface HeaderProps {
   activeTab: string;
   onDataRefresh: () => void;
-  onOpenTerms?: () => void;
-  onOpenPrivacy?: () => void;
-  onOpenDeleteAccount?: () => void;
+  onOpenProfile: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   activeTab, 
   onDataRefresh,
-  onOpenTerms,
-  onOpenPrivacy,
-  onOpenDeleteAccount
+  onOpenProfile
 }) => {
-  const { isLaunchFreeMode, isTrialActive, daysRemaining, openPaywall } = useSubscription();
-
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || 
            localStorage.getItem('theme') === 'dark';
   });
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(supabaseSyncService.getStatus());
+  const [isSyncingManual, setIsSyncingManual] = useState(false);
 
   // Suscripción al estado de sincronización Supabase
   useEffect(() => {
@@ -73,47 +64,11 @@ export const Header: React.FC<HeaderProps> = ({
       case 'prestamos': return 'Préstamos';
       case 'calendario': return 'Cobros';
       case 'reportes': return 'Métricas';
+      case 'perfil': return 'Mi Perfil';
+      case 'terminos': return 'Términos de Uso';
+      case 'privacidad': return 'Privacidad';
       default: return 'Prestalo';
     }
-  };
-
-  const handleResetData = () => {
-    if (window.confirm('¿Está seguro de limpiar los datos locales de este dispositivo?')) {
-      storageService.initializeData(true);
-      onDataRefresh();
-      setShowSettingsMenu(false);
-    }
-  };
-
-  const handleExportBackup = () => {
-    const backupStr = storageService.exportBackup();
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(backupStr);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `prestalo_backup_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    setShowSettingsMenu(false);
-  };
-
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    if (e.target.files && e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], "UTF-8");
-      fileReader.onload = (event) => {
-        try {
-          if (event.target?.result) {
-            storageService.importBackup(event.target.result as string);
-            alert('¡Respaldo importado correctamente!');
-            onDataRefresh();
-          }
-        } catch (err) {
-          alert((err as Error).message);
-        }
-      };
-    }
-    setShowSettingsMenu(false);
   };
 
   const handleInstallApp = async () => {
@@ -128,20 +83,15 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleSyncNow = async () => {
+    setIsSyncingManual(true);
     const ok = await supabaseSyncService.syncDown(() => {
       onDataRefresh();
     });
+    setIsSyncingManual(false);
     if (ok) {
       alert('¡Sincronización con la nube completada!');
     } else {
       alert('Sin conexión o trabajando en Modo Offline.');
-    }
-  };
-
-  const handleLogout = async () => {
-    if (window.confirm('¿Está seguro de cerrar sesión?')) {
-      storageService.clearUserData();
-      await supabase.auth.signOut();
     }
   };
 
@@ -155,18 +105,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
       
       <div className="header-right">
-        {/* Botón de Membresía PRO (Solo visible si no está en modo lanzamiento gratuito) */}
-        {!isLaunchFreeMode && (
-          <button 
-            className="header-pro-badge"
-            onClick={openPaywall}
-            title={isTrialActive ? `Prueba VIP: ${daysRemaining} días restantes` : "Membresía Prestalo PRO"}
-          >
-            <Crown size={14} className="pro-icon" />
-            <span>{isTrialActive ? `${daysRemaining}d VIP` : 'PRO'}</span>
-          </button>
-        )}
-
         {isInstallable && (
           <button 
             className="header-btn install-btn" 
@@ -177,17 +115,19 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
         
+        {/* Indicador de Sincronización en la Nube */}
         <button
           className={`header-btn sync-badge ${syncStatus}`}
           onClick={handleSyncNow}
+          disabled={isSyncingManual}
           title={
-            syncStatus === 'synced' ? 'Sincronizado con Supabase (Clic para actualizar)' :
+            syncStatus === 'synced' ? 'Sincronizado con la nube (Clic para actualizar)' :
             syncStatus === 'syncing' ? 'Sincronizando con la nube...' :
             syncStatus === 'offline' ? 'Modo Offline (Datos guardados localmente)' :
             'Error de sincronización'
           }
         >
-          {syncStatus === 'syncing' ? (
+          {syncStatus === 'syncing' || isSyncingManual ? (
             <RefreshCw size={17} className="spin" />
           ) : syncStatus === 'synced' ? (
             <Cloud size={17} style={{ color: '#00F29D' }} />
@@ -198,6 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
         
+        {/* Selector de Tema */}
         <button 
           className="header-btn" 
           onClick={() => setDarkMode(!darkMode)}
@@ -206,76 +147,14 @@ export const Header: React.FC<HeaderProps> = ({
           {darkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        <div className="backup-dropdown-container">
-          <button 
-            className={`header-btn ${showSettingsMenu ? 'active' : ''}`} 
-            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-            title="Ajustes y Respaldo"
-          >
-            <Database size={18} />
-          </button>
-
-          {showSettingsMenu && (
-            <div className="backup-dropdown animate-scale-in">
-              {!isLaunchFreeMode && (
-                <>
-                  <button onClick={() => { setShowSettingsMenu(false); openPaywall(); }} className="dropdown-item pro-highlight">
-                    <Crown size={14} style={{ color: '#00F29D' }} />
-                    <span>Membresía PRO</span>
-                  </button>
-                  <div className="dropdown-divider"></div>
-                </>
-              )}
-              
-              <button onClick={handleExportBackup} className="dropdown-item">
-                Exportar Respaldo (JSON)
-              </button>
-              <label className="dropdown-item file-label">
-                Importar Respaldo (JSON)
-                <input 
-                  type="file" 
-                  accept=".json" 
-                  onChange={handleImportBackup} 
-                  style={{ display: 'none' }} 
-                />
-              </label>
-              <button onClick={handleResetData} className="dropdown-item">
-                <RefreshCw size={14} />
-                <span>Restablecer Datos Locales</span>
-              </button>
-
-              <div className="dropdown-divider"></div>
-
-              {onOpenTerms && (
-                <button onClick={() => { setShowSettingsMenu(false); onOpenTerms(); }} className="dropdown-item">
-                  <FileText size={14} />
-                  <span>Términos y Condiciones</span>
-                </button>
-              )}
-
-              {onOpenPrivacy && (
-                <button onClick={() => { setShowSettingsMenu(false); onOpenPrivacy(); }} className="dropdown-item">
-                  <ShieldCheck size={14} />
-                  <span>Política de Privacidad</span>
-                </button>
-              )}
-
-              <div className="dropdown-divider"></div>
-
-              <button onClick={handleLogout} className="dropdown-item">
-                <LogOut size={14} />
-                <span>Cerrar Sesión</span>
-              </button>
-
-              {onOpenDeleteAccount && (
-                <button onClick={() => { setShowSettingsMenu(false); onOpenDeleteAccount(); }} className="dropdown-item danger">
-                  <Trash2 size={14} />
-                  <span>Eliminar Cuenta</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Botón de Acceso a Mi Perfil y Ajustes */}
+        <button 
+          className={`header-btn profile-btn ${activeTab === 'perfil' ? 'active' : ''}`}
+          onClick={onOpenProfile}
+          title="Mi Perfil y Ajustes"
+        >
+          <User size={18} />
+        </button>
       </div>
 
       <style>{`
@@ -314,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         .header-title {
-          font-size: 20px;
+          font-size: 19px;
           font-weight: 800;
           letter-spacing: -0.4px;
           background: linear-gradient(135deg, #00F29D 0%, #38BDF8 100%);
@@ -324,39 +203,21 @@ export const Header: React.FC<HeaderProps> = ({
 
         .header-right {
           display: flex;
-          gap: 7px;
+          gap: 8px;
           align-items: center;
-        }
-
-        .header-pro-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          background: linear-gradient(135deg, rgba(0, 242, 157, 0.15), rgba(56, 189, 248, 0.15));
-          border: 1px solid rgba(0, 242, 157, 0.4);
-          color: #00F29D;
-          font-size: 11px;
-          font-weight: 800;
-          padding: 6px 10px;
-          border-radius: 20px;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .header-pro-badge:active {
-          transform: scale(0.92);
         }
 
         .header-btn {
-          height: 34px;
-          width: 34px;
-          border-radius: 10px;
+          height: 36px;
+          width: 36px;
+          border-radius: 11px;
           background-color: var(--bg-card);
           border: 1px solid var(--border-color);
           color: var(--text-secondary);
           display: flex;
           align-items: center;
           justify-content: center;
+          cursor: pointer;
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -368,6 +229,13 @@ export const Header: React.FC<HeaderProps> = ({
           background-color: var(--bg-elevated);
           color: var(--primary);
           border-color: rgba(0, 242, 157, 0.3);
+        }
+
+        .header-btn.active {
+          background-color: rgba(0, 242, 157, 0.15);
+          border-color: rgba(0, 242, 157, 0.4);
+          color: #00F29D;
+          box-shadow: 0 0 10px rgba(0, 242, 157, 0.2);
         }
 
         .install-btn {
@@ -388,69 +256,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         @keyframes spin {
           100% { transform: rotate(360deg); }
-        }
-
-        .backup-dropdown-container {
-          position: relative;
-        }
-
-        .backup-dropdown {
-          position: absolute;
-          right: 0;
-          top: 44px;
-          width: 230px;
-          background-color: var(--bg-card);
-          border: 1px solid var(--border-color);
-          border-radius: 16px;
-          box-shadow: var(--shadow-lg);
-          padding: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          z-index: 105;
-        }
-
-        .dropdown-item {
-          padding: 10px 12px;
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
-          border-radius: 10px;
-          text-align: left;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: background-color 0.2s, color 0.2s;
-        }
-
-        .dropdown-item.pro-highlight {
-          color: #00F29D;
-          font-weight: 700;
-          background: rgba(0, 242, 157, 0.08);
-        }
-
-        .dropdown-item:hover {
-          background-color: var(--bg-elevated);
-          color: var(--text-primary);
-        }
-
-        .dropdown-item.danger {
-          color: var(--danger);
-        }
-
-        .dropdown-item.danger:hover {
-          background-color: rgba(255, 56, 92, 0.1);
-        }
-
-        .dropdown-divider {
-          height: 1px;
-          background-color: var(--border-color);
-          margin: 4px 0;
-        }
-
-        .file-label {
-          display: block;
         }
       `}</style>
     </header>

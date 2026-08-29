@@ -1,18 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { Lock, Mail, Eye, EyeOff, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { storageService } from '../../services/storageService';
+import { 
+  Lock, 
+  Mail, 
+  User, 
+  Building2, 
+  Phone, 
+  Eye, 
+  EyeOff, 
+  AlertCircle, 
+  Loader2, 
+  CheckCircle2, 
+  ArrowLeft
+} from 'lucide-react';
+
+type AuthMode = 'login' | 'register' | 'forgot_password' | 'update_password';
 
 export const Login: React.FC = () => {
-  const [isRegister, setIsRegister] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+
+  // Campos de formulario
+  const [fullName, setFullName] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Escuchar si el usuario llegó a través de un enlace de recuperación de contraseña
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update_password');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fondo Canvas Generativo de Partículas Aurora Mint
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -30,8 +64,7 @@ export const Login: React.FC = () => {
     };
     window.addEventListener('resize', handleResize);
 
-    // Partículas Aurora Mint & Obsidian
-    const particleCount = 65;
+    const particleCount = 60;
     const particles: Array<{
       x: number;
       y: number;
@@ -87,7 +120,7 @@ export const Login: React.FC = () => {
         if (p.y > height) p.y = 0;
 
         p.history.push({ x: p.x, y: p.y });
-        if (p.history.length > 22) {
+        if (p.history.length > 20) {
           p.history.shift();
         }
 
@@ -98,7 +131,7 @@ export const Login: React.FC = () => {
             ctx.lineTo(p.history[i].x, p.history[i].y);
           }
           ctx.strokeStyle = p.color;
-          ctx.lineWidth = 2.2;
+          ctx.lineWidth = 2;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.stroke();
@@ -118,73 +151,180 @@ export const Login: React.FC = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg('Por favor completa todos los campos.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    try {
-      if (isRegister) {
-        // Registro de usuario nuevo (con 30 días de prueba VIP automática)
+    // 1. Manejo de recuperación de contraseña
+    if (authMode === 'forgot_password') {
+      if (!email) {
+        setErrorMsg('Por favor ingresa tu correo electrónico.');
+        return;
+      }
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin
+        });
+        if (error) throw error;
+        setSuccessMsg('¡Enlace enviado! Revisa tu bandeja de entrada o spam para restablecer tu contraseña.');
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Error al enviar el correo de recuperación.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 2. Manejo de actualización de contraseña nueva
+    if (authMode === 'update_password') {
+      if (password.length < 6) {
+        setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Las contraseñas no coinciden.');
+        return;
+      }
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setSuccessMsg('¡Contraseña actualizada exitosamente! Iniciando sesión...');
+        setTimeout(() => {
+          setAuthMode('login');
+        }, 2000);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Error al actualizar la contraseña.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 3. Manejo de Registro
+    if (authMode === 'register') {
+      if (!fullName.trim()) {
+        setErrorMsg('Por favor ingresa tu nombre completo.');
+        return;
+      }
+      if (!phone.trim()) {
+        setErrorMsg('Por favor ingresa tu número de teléfono / WhatsApp.');
+        return;
+      }
+      if (!email.trim() || !password) {
+        setErrorMsg('Por favor completa todos los campos obligatorios.');
+        return;
+      }
+      if (password.length < 6) {
+        setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Las contraseñas no coinciden.');
+        return;
+      }
+
+      setLoading(true);
+      try {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              business_name: businessName.trim(),
+              phone: phone.trim()
+            }
+          }
         });
 
         if (error) throw error;
 
+        // Guardar datos en perfil local
+        storageService.saveUserProfile({
+          fullName: fullName.trim(),
+          businessName: businessName.trim(),
+          phone: phone.trim(),
+          email: email.trim()
+        });
+
         if (data?.session) {
           setSuccessMsg('¡Cuenta creada con éxito! Bienvenido a Prestalo.');
         } else {
-          setSuccessMsg('¡Registro exitoso! Revisa tu correo para confirmar la cuenta si es necesario, o inicia sesión.');
+          setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.');
+          setTimeout(() => setAuthMode('login'), 2500);
         }
-      } else {
-        // Inicio de sesión
+      } catch (err: any) {
+        console.error('Error al registrar:', err);
+        setErrorMsg(err.message || 'Error al crear la cuenta.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 4. Manejo de Inicio de Sesión
+    if (authMode === 'login') {
+      if (!email.trim() || !password) {
+        setErrorMsg('Por favor ingresa tu correo y contraseña.');
+        return;
+      }
+      setLoading(true);
+      try {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
-            throw new Error('Credenciales incorrectas. Verifica tu correo y contraseña.');
+            throw new Error('Correo o contraseña incorrectos.');
           } else if (error.message.includes('Email not confirmed')) {
-            throw new Error('El correo electrónico no ha sido verificado todavía.');
+            throw new Error('El correo electrónico aún no ha sido confirmado.');
           } else {
             throw error;
           }
         }
+      } catch (err: any) {
+        console.error('Error de inicio de sesión:', err);
+        setErrorMsg(err.message || 'Error al iniciar sesión.');
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error('Error de autenticación:', err);
-      setErrorMsg(err.message || 'Ocurrió un error inesperado. Intente de nuevo.');
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
     <div className="login-container">
-      {/* Fondo Canvas Generativo Algorítmico */}
+      {/* Fondo Canvas Generativo */}
       <canvas ref={canvasRef} className="login-canvas-backdrop" />
 
       <div className="login-card animate-fade-in">
+        {authMode !== 'login' && authMode !== 'update_password' && (
+          <button 
+            type="button" 
+            className="login-back-btn" 
+            onClick={() => {
+              setAuthMode('login');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+          >
+            <ArrowLeft size={16} />
+            <span>Volver a Iniciar Sesión</span>
+          </button>
+        )}
+
         <div className="login-header">
           <div className="login-logo-wrapper">
             <img src="/logo.png" alt="Préstalo Logo" className="login-logo-img" />
           </div>
           <h1 className="login-title">Préstalo</h1>
           <p className="login-subtitle">
-            {isRegister ? 'Crea tu cuenta y gestiona tus préstamos' : 'Gestión Inteligente de Cobros y Préstamos'}
+            {authMode === 'register' && 'Crea tu cuenta y comienza a gestionar tus créditos'}
+            {authMode === 'login' && 'Gestión Inteligente de Cobros y Préstamos'}
+            {authMode === 'forgot_password' && 'Recuperación de Contraseña'}
+            {authMode === 'update_password' && 'Crea tu nueva contraseña'}
           </p>
         </div>
 
@@ -203,76 +343,196 @@ export const Login: React.FC = () => {
         )}
 
         <form onSubmit={handleAuth} className="login-form">
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Correo Electrónico</label>
-            <div className="input-wrapper">
-              <Mail className="input-icon" size={18} />
-              <input
-                id="email"
-                type="email"
-                className="form-input"
-                placeholder="tu@correo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
-          </div>
+          {/* CAMPOS ADICIONALES PARA REGISTRO */}
+          {authMode === 'register' && (
+            <>
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-name">Nombre Completo *</label>
+                <div className="input-wrapper">
+                  <User className="input-icon" size={18} />
+                  <input
+                    id="reg-name"
+                    type="text"
+                    className="form-input"
+                    placeholder="Ej. Juan Pérez"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Contraseña</label>
-            <div className="input-wrapper">
-              <Lock className="input-icon" size={18} />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                placeholder="Mínimo 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={loading}
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-business">Nombre de tu Negocio / Cartera (Opcional)</label>
+                <div className="input-wrapper">
+                  <Building2 className="input-icon" size={18} />
+                  <input
+                    id="reg-business"
+                    type="text"
+                    className="form-input"
+                    placeholder="Ej. Inversiones El Trébol"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-phone">Teléfono / WhatsApp de Cobranza *</label>
+                <div className="input-wrapper">
+                  <Phone className="input-icon" size={18} />
+                  <input
+                    id="reg-phone"
+                    type="tel"
+                    className="form-input"
+                    placeholder="Ej. +57 300 123 4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* CAMPO DE EMAIL (LOGIN, REGISTER, FORGOT) */}
+          {authMode !== 'update_password' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="auth-email">Correo Electrónico *</label>
+              <div className="input-wrapper">
+                <Mail className="input-icon" size={18} />
+                <input
+                  id="auth-email"
+                  type="email"
+                  className="form-input"
+                  placeholder="tu@correo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* CAMPO DE CONTRASEÑA (LOGIN, REGISTER, UPDATE) */}
+          {authMode !== 'forgot_password' && (
+            <div className="form-group">
+              <div className="form-label-row">
+                <label className="form-label" htmlFor="auth-password">
+                  {authMode === 'update_password' ? 'Nueva Contraseña *' : 'Contraseña *'}
+                </label>
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setAuthMode('forgot_password');
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                    }}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+              </div>
+              <div className="input-wrapper">
+                <Lock className="input-icon" size={18} />
+                <input
+                  id="auth-password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="Mínimo 6 caracteres"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* CONFIRMAR CONTRASEÑA EN REGISTRO O ACTUALIZACIÓN */}
+          {(authMode === 'register' || authMode === 'update_password') && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="auth-confirm-pass">Confirmar Contraseña *</label>
+              <div className="input-wrapper">
+                <Lock className="input-icon" size={18} />
+                <input
+                  id="auth-confirm-pass"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="Repite tu contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+            </div>
+          )}
 
           <button type="submit" className="login-submit-btn" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 size={18} className="spin-icon" />
-                <span>{isRegister ? 'Creando Cuenta...' : 'Iniciando Sesión...'}</span>
+                <span>Procesando...</span>
               </>
             ) : (
-              <span>{isRegister ? 'Crear Cuenta Gratis' : 'Iniciar Sesión'}</span>
+              <span>
+                {authMode === 'login' && 'Iniciar Sesión'}
+                {authMode === 'register' && 'Crear Cuenta'}
+                {authMode === 'forgot_password' && 'Enviar Enlace de Recuperación'}
+                {authMode === 'update_password' && 'Guardar Nueva Contraseña'}
+              </span>
             )}
           </button>
         </form>
 
-        <div className="auth-switch-section">
-          <button 
-            type="button" 
-            className="auth-switch-btn" 
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-          >
-            {isRegister 
-              ? '¿Ya tienes una cuenta? Iniciar Sesión' 
-              : '¿Nuevo en Prestalo? Crea tu cuenta gratis'}
-          </button>
-        </div>
+        {/* CAMBIO ENTRE LOGIN Y REGISTRO */}
+        {authMode === 'login' && (
+          <div className="auth-switch-section">
+            <button 
+              type="button" 
+              className="auth-switch-btn" 
+              onClick={() => {
+                setAuthMode('register');
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+            >
+              ¿No tienes cuenta? <strong>Regístrate gratis</strong>
+            </button>
+          </div>
+        )}
+
+        {authMode === 'register' && (
+          <div className="auth-switch-section">
+            <button 
+              type="button" 
+              className="auth-switch-btn" 
+              onClick={() => {
+                setAuthMode('login');
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+            >
+              ¿Ya tienes una cuenta? <strong>Inicia Sesión</strong>
+            </button>
+          </div>
+        )}
 
         <div className="login-footer">
           <p>Tus datos financieros están 100% aislados y protegidos con cifrado de extremo a extremo.</p>
@@ -281,16 +541,18 @@ export const Login: React.FC = () => {
 
       <style>{`
         .login-container {
-          min-height: 100vh;
-          min-height: 100dvh;
-          width: 100%;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 16px;
           background-color: var(--bg-app);
-          position: relative;
-          overflow: hidden;
-          padding: 20px;
+          z-index: 1000;
+          overflow-y: auto;
         }
 
         .login-canvas-backdrop {
@@ -304,104 +566,85 @@ export const Login: React.FC = () => {
         }
 
         .login-card {
+          position: relative;
+          z-index: 10;
           width: 100%;
-          max-width: 420px;
-          background: var(--glass-bg);
+          max-width: 440px;
+          background: rgba(17, 24, 40, 0.88);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          border: 1px solid var(--border-color);
+          border: 1px solid rgba(0, 242, 157, 0.25);
           border-radius: 24px;
-          box-shadow: var(--shadow-lg);
-          padding: 32px 28px;
-          z-index: 10;
+          padding: 30px 24px;
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 242, 157, 0.08);
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          margin: auto;
+        }
+
+        .login-back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 10px;
+          align-self: flex-start;
+          cursor: pointer;
         }
 
         .login-header {
           text-align: center;
-          margin-bottom: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
         }
 
         .login-logo-wrapper {
-          width: 76px;
-          height: 76px;
-          margin: 0 auto 16px auto;
+          height: 60px;
+          width: 60px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, #111828, #1A243C);
+          border: 1px solid rgba(0, 242, 157, 0.4);
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #111828, #1A243C);
-          border: 1px solid rgba(0, 242, 157, 0.3);
-          border-radius: 22px;
-          padding: 10px;
-          box-shadow: 0 10px 25px rgba(0, 242, 157, 0.2);
+          box-shadow: 0 0 20px rgba(0, 242, 157, 0.25);
+          margin-bottom: 2px;
         }
 
         .login-logo-img {
-          width: 100%;
-          height: 100%;
+          height: 38px;
+          width: 38px;
           object-fit: contain;
-          border-radius: 12px;
         }
 
         .login-title {
-          font-size: 30px;
+          font-size: 26px;
           font-weight: 800;
-          letter-spacing: -0.6px;
+          letter-spacing: -0.5px;
           background: linear-gradient(135deg, #00F29D 0%, #38BDF8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          margin-bottom: 4px;
         }
 
         .login-subtitle {
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-secondary);
-          font-weight: 500;
-        }
-
-        .vip-badge-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(0, 242, 157, 0.12);
-          border: 1px solid rgba(0, 242, 157, 0.35);
-          color: #00F29D;
-          font-size: 12px;
-          font-weight: 700;
-          padding: 6px 14px;
-          border-radius: 20px;
-          margin-top: 14px;
-        }
-
-        .error-banner {
-          background-color: rgba(255, 56, 92, 0.1);
-          border: 1px solid rgba(255, 56, 92, 0.25);
-          border-radius: 12px;
-          padding: 12px;
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          font-size: 13px;
-          color: var(--danger);
-          margin-bottom: 18px;
-        }
-
-        .success-banner {
-          background-color: rgba(0, 242, 157, 0.1);
-          border: 1px solid rgba(0, 242, 157, 0.25);
-          border-radius: 12px;
-          padding: 12px;
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          font-size: 13px;
-          color: #00F29D;
-          margin-bottom: 18px;
+          line-height: 1.4;
+          max-width: 320px;
         }
 
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 14px;
         }
 
         .form-group {
@@ -410,10 +653,26 @@ export const Login: React.FC = () => {
           gap: 6px;
         }
 
+        .form-label-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
         .form-label {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: var(--text-secondary);
+        }
+
+        .forgot-password-link {
+          background: none;
+          border: none;
+          color: var(--primary);
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
         }
 
         .input-wrapper {
@@ -424,40 +683,41 @@ export const Login: React.FC = () => {
 
         .input-icon {
           position: absolute;
-          left: 14px;
+          left: 12px;
           color: var(--text-tertiary);
           pointer-events: none;
         }
 
         .form-input {
           width: 100%;
-          height: 48px;
-          background-color: var(--bg-input);
+          height: 44px;
+          padding-left: 38px;
+          padding-right: 38px;
+          background: var(--bg-input);
           border: 1px solid var(--border-color);
-          border-radius: 14px;
-          padding: 0 44px 0 42px;
-          font-size: 15px;
+          border-radius: 12px;
           color: var(--text-primary);
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .form-input:focus {
           border-color: var(--primary);
           box-shadow: 0 0 0 3px rgba(0, 242, 157, 0.15);
-          outline: none;
         }
 
         .password-toggle {
           position: absolute;
-          right: 14px;
+          right: 12px;
+          background: none;
+          border: none;
           color: var(--text-tertiary);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: none;
-          border: none;
-          padding: 0;
+          padding: 4px;
         }
 
         .password-toggle:hover {
@@ -465,57 +725,81 @@ export const Login: React.FC = () => {
         }
 
         .login-submit-btn {
-          height: 50px;
-          background: linear-gradient(135deg, #00F29D 0%, #00D68A 100%);
+          height: 46px;
+          margin-top: 4px;
+          background: linear-gradient(135deg, #00F29D 0%, #00D88B 100%);
           color: #070A12;
-          font-size: 15px;
+          border: none;
+          border-radius: 12px;
+          font-size: 14px;
           font-weight: 800;
-          border-radius: 14px;
+          letter-spacing: 0.3px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
           cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-          margin-top: 8px;
-          box-shadow: 0 6px 20px rgba(0, 242, 157, 0.25);
-          border: none;
+          box-shadow: 0 4px 16px rgba(0, 242, 157, 0.3);
+          transition: transform 0.15s, box-shadow 0.15s;
         }
 
         .login-submit-btn:active {
-          transform: scale(0.97);
+          transform: scale(0.98);
         }
 
         .login-submit-btn:disabled {
-          opacity: 0.6;
+          opacity: 0.7;
           cursor: not-allowed;
         }
 
         .auth-switch-section {
           text-align: center;
-          margin-top: 18px;
+          border-top: 1px solid var(--border-color);
+          padding-top: 14px;
         }
 
         .auth-switch-btn {
           background: none;
           border: none;
-          color: var(--primary);
+          color: var(--text-secondary);
           font-size: 13px;
-          font-weight: 700;
           cursor: pointer;
-          padding: 6px;
+          padding: 4px 8px;
         }
 
-        .auth-switch-btn:hover {
-          text-decoration: underline;
+        .auth-switch-btn strong {
+          color: var(--primary);
         }
 
         .login-footer {
           text-align: center;
-          margin-top: 20px;
           font-size: 11px;
           color: var(--text-tertiary);
           line-height: 1.4;
+        }
+
+        .error-banner {
+          background: rgba(255, 56, 92, 0.1);
+          border: 1px solid rgba(255, 56, 92, 0.3);
+          color: #FF385C;
+          padding: 10px 14px;
+          border-radius: 12px;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .success-banner {
+          background: rgba(0, 242, 157, 0.1);
+          border: 1px solid rgba(0, 242, 157, 0.3);
+          color: #00F29D;
+          padding: 10px 14px;
+          border-radius: 12px;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .spin-icon {

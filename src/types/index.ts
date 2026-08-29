@@ -83,3 +83,14 @@ export interface UserSubscription {
   currentPeriodEnd?: string | null;
   createdAt?: string;
 }
+
+export interface UserProfile {
+  id?: string;
+  userId?: string;
+  fullName: string;
+  businessName?: string;
+  phone?: string;
+  email?: string;
+  currencySymbol?: string;
+  updatedAt?: string;
+}

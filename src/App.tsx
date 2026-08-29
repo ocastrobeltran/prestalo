@@ -6,6 +6,7 @@ import { Clients } from './pages/Clients';
 import { Loans } from './pages/Loans';
 import { Calendar } from './pages/Calendar';
 import { Reports } from './pages/Reports';
+import { Profile } from './pages/Profile';
 import { TermsAndConditions } from './pages/TermsAndConditions';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { ClientModal } from './components/clients/ClientModal';
@@ -57,7 +58,7 @@ const MainApp: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Contexto de Suscripción
-  const { canCreateClient, canCreateLoan, isPaywallOpen, openPaywall, closePaywall } = useSubscription();
+  const { canCreateClient, canCreateLoan, isPaywallOpen, closePaywall } = useSubscription();
 
   // Cargar y refrescar datos
   const refreshData = () => {
@@ -146,7 +147,6 @@ const MainApp: React.FC = () => {
 
   const openNewClientModal = () => {
     if (!canCreateClient(clients.length)) {
-      openPaywall();
       return;
     }
     setClientToEdit(null);
@@ -174,7 +174,6 @@ const MainApp: React.FC = () => {
 
   const openNewLoanModal = (clientId?: string) => {
     if (!canCreateLoan(loans.length)) {
-      openPaywall();
       return;
     }
     setDefaultClientId(clientId);
@@ -276,10 +275,19 @@ const MainApp: React.FC = () => {
             transactions={transactions}
           />
         );
+      case 'perfil':
+        return (
+          <Profile
+            onOpenTerms={() => setActiveTab('terminos')}
+            onOpenPrivacy={() => setActiveTab('privacidad')}
+            onOpenDeleteAccount={() => setIsDeleteModalOpen(true)}
+            onDataRefresh={refreshData}
+          />
+        );
       case 'terminos':
-        return <TermsAndConditions onBack={() => setActiveTab('inicio')} />;
+        return <TermsAndConditions onBack={() => setActiveTab('perfil')} />;
       case 'privacidad':
-        return <PrivacyPolicy onBack={() => setActiveTab('inicio')} />;
+        return <PrivacyPolicy onBack={() => setActiveTab('perfil')} />;
       default:
         return <div>Página no encontrada</div>;
     }
@@ -290,9 +298,7 @@ const MainApp: React.FC = () => {
       <Header 
         activeTab={activeTab} 
         onDataRefresh={refreshData}
-        onOpenTerms={() => setActiveTab('terminos')}
-        onOpenPrivacy={() => setActiveTab('privacidad')}
-        onOpenDeleteAccount={() => setIsDeleteModalOpen(true)}
+        onOpenProfile={() => setActiveTab('perfil')}
       />
       
       <main>
