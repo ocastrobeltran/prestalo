@@ -227,16 +227,77 @@ button:active {
 }
 
 /* Clases del Sistema de Diseño Titanium */
-.titan-card {
+.titan-card,
+.card {
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--border-color);
   border-radius: 18px;
   box-shadow: var(--shadow-md);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: 16px;
+  color: var(--text-primary);
 }
 
-.titan-card:active {
-  transform: scale(0.99);
+/* ==============================================================================
+   FORMULARIOS, INPUTS Y SELECTS DE ALTA CALIDAD (WCAG COMPLIANT)
+   ============================================================================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.form-group label,
+.form-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.1px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="date"],
+select,
+textarea,
+.form-input {
+  width: 100%;
+  height: 46px;
+  padding: 10px 14px;
+  background-color: var(--bg-input);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+}
+
+textarea {
+  height: auto;
+  min-height: 80px;
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.85;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+  background-color: var(--bg-card);
 }
 
 .aurora-btn-primary {

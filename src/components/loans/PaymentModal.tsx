@@ -655,8 +655,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         .form-group label {
           font-size: 13px;
-          font-weight: 600;
-          color: var(--text-secondary);
+          font-weight: 700;
+          color: var(--text-primary);
         }
 
         .input-with-action {
@@ -666,77 +666,98 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         .input-with-action input {
           flex: 1;
+          height: 46px;
           padding: 10px 14px;
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 700;
-          border-radius: 10px;
-          border: 1px solid var(--border-color);
-          background-color: var(--bg-container);
+          border-radius: 12px;
+          border: 1.5px solid var(--border-color);
+          background-color: var(--bg-input);
           color: var(--text-primary);
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-with-action input:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px var(--primary-glow);
+          background-color: var(--bg-card);
         }
 
         .full-pay-quick-btn {
-          padding: 0 12px;
+          padding: 0 14px;
+          height: 46px;
           font-size: 12px;
-          font-weight: 600;
-          background-color: var(--bg-app);
-          border: 1px solid var(--border-color);
+          font-weight: 700;
+          background-color: var(--bg-elevated);
+          border: 1.5px solid var(--border-color);
           color: var(--primary);
-          border-radius: 10px;
+          border-radius: 12px;
           white-space: nowrap;
           cursor: pointer;
-          transition: background-color 0.2s;
+          transition: background-color 0.2s, color 0.2s;
         }
 
         .full-pay-quick-btn:hover {
-          background-color: rgba(14, 165, 233, 0.1);
+          background-color: rgba(var(--primary-rgb), 0.12);
         }
 
         .help-text {
           font-size: 12px;
-          color: var(--text-tertiary);
+          color: var(--text-secondary);
           margin-top: 2px;
         }
 
         .error-banner {
-          background-color: rgba(239, 68, 68, 0.1);
+          background-color: rgba(var(--danger-rgb), 0.1);
           color: var(--danger);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          border: 1px solid rgba(var(--danger-rgb), 0.3);
           padding: 10px 12px;
-          border-radius: 10px;
+          border-radius: 12px;
           font-size: 13px;
+          font-weight: 600;
         }
 
         .modal-actions {
           display: flex;
           gap: 10px;
-          margin-top: 6px;
+          margin-top: 8px;
         }
 
         .btn-secondary {
           flex: 1;
+          height: 48px;
           padding: 12px;
-          border-radius: 10px;
-          border: 1px solid var(--border-color);
-          background-color: var(--bg-app);
-          color: var(--text-primary);
-          font-weight: 600;
+          border-radius: 12px;
+          border: 1.5px solid var(--border-color);
+          background-color: var(--bg-elevated);
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 700;
           cursor: pointer;
         }
 
         .btn-primary {
           flex: 2;
+          height: 48px;
           padding: 12px;
-          border-radius: 10px;
+          border-radius: 12px;
           border: none;
-          background-color: var(--primary);
-          color: white;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
+          font-size: 15px;
           font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
+          box-shadow: 0 4px 16px var(--primary-glow);
+          transition: transform 0.15s ease, filter 0.2s ease;
+        }
+
+        .btn-primary:active {
+          transform: scale(0.98);
         }
 
         .renewal-confirm-btn {

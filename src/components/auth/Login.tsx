@@ -46,7 +46,7 @@ export const Login: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fondo Canvas Generativo de Partículas Aurora Mint
+  // Fondo Canvas Generativo Adaptativo (Luz / Oscuridad)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -64,7 +64,8 @@ export const Login: React.FC = () => {
     };
     window.addEventListener('resize', handleResize);
 
-    const particleCount = 60;
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const particleCount = 50;
     const particles: Array<{
       x: number;
       y: number;
@@ -76,12 +77,21 @@ export const Login: React.FC = () => {
       angleOffset: number;
     }> = [];
 
-    const colors = [
-      'rgba(0, 242, 157, 0.22)',   // Aurora Mint
-      'rgba(56, 189, 248, 0.18)',  // Cyber Blue
-      'rgba(139, 92, 246, 0.16)',  // Deep Purple
-      'rgba(251, 191, 36, 0.15)'   // Solar Amber
+    const darkColors = [
+      'rgba(0, 242, 157, 0.25)',  // Aurora Mint
+      'rgba(56, 189, 248, 0.20)', // Cyber Blue
+      'rgba(139, 92, 246, 0.18)', // Deep Purple
+      'rgba(251, 191, 36, 0.18)'  // Solar Amber
     ];
+
+    const lightColors = [
+      'rgba(5, 150, 105, 0.20)',  // Deep Emerald Mint
+      'rgba(2, 132, 199, 0.18)',  // Cyber Sky
+      'rgba(124, 58, 237, 0.16)', // Deep Purple
+      'rgba(217, 119, 6, 0.16)'   // Warm Amber
+    ];
+
+    const activeColors = isDarkMode ? darkColors : lightColors;
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
@@ -90,8 +100,8 @@ export const Login: React.FC = () => {
         vx: 0,
         vy: 0,
         history: [],
-        color: colors[Math.floor(Math.random() * colors.length)],
-        speed: 0.3 + Math.random() * 0.7,
+        color: activeColors[Math.floor(Math.random() * activeColors.length)],
+        speed: 0.3 + Math.random() * 0.6,
         angleOffset: Math.random() * Math.PI * 2
       });
     }
@@ -99,9 +109,10 @@ export const Login: React.FC = () => {
     let time = 0;
 
     const render = () => {
-      ctx.fillStyle = document.documentElement.classList.contains('dark')
-        ? 'rgba(7, 10, 18, 0.12)' 
-        : 'rgba(244, 247, 251, 0.12)';
+      const isDark = document.documentElement.classList.contains('dark');
+      ctx.fillStyle = isDark
+        ? 'rgba(7, 10, 18, 0.15)' 
+        : 'rgba(241, 245, 249, 0.20)';
       ctx.fillRect(0, 0, width, height);
 
       time += 0.0012;
@@ -120,7 +131,7 @@ export const Login: React.FC = () => {
         if (p.y > height) p.y = 0;
 
         p.history.push({ x: p.x, y: p.y });
-        if (p.history.length > 20) {
+        if (p.history.length > 18) {
           p.history.shift();
         }
 
@@ -154,9 +165,9 @@ export const Login: React.FC = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // 1. Manejo de recuperación de contraseña
+    // 1. Recuperación de contraseña
     if (authMode === 'forgot_password') {
-      if (!email) {
+      if (!email.trim()) {
         setErrorMsg('Por favor ingresa tu correo electrónico.');
         return;
       }
@@ -175,7 +186,7 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // 2. Manejo de actualización de contraseña nueva
+    // 2. Actualización de contraseña
     if (authMode === 'update_password') {
       if (password.length < 6) {
         setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.');
@@ -201,7 +212,7 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // 3. Manejo de Registro
+    // 3. Registro de usuario
     if (authMode === 'register') {
       if (!fullName.trim()) {
         setErrorMsg('Por favor ingresa tu nombre completo.');
@@ -240,7 +251,6 @@ export const Login: React.FC = () => {
 
         if (error) throw error;
 
-        // Guardar datos en perfil local
         storageService.saveUserProfile({
           fullName: fullName.trim(),
           businessName: businessName.trim(),
@@ -252,7 +262,7 @@ export const Login: React.FC = () => {
           setSuccessMsg('¡Cuenta creada con éxito! Bienvenido a Prestalo.');
         } else {
           setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.');
-          setTimeout(() => setAuthMode('login'), 2500);
+          setTimeout(() => setAuthMode('login'), 2000);
         }
       } catch (err: any) {
         console.error('Error al registrar:', err);
@@ -263,7 +273,7 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // 4. Manejo de Inicio de Sesión
+    // 4. Inicio de Sesión
     if (authMode === 'login') {
       if (!email.trim() || !password) {
         setErrorMsg('Por favor ingresa tu correo y contraseña.');
@@ -299,7 +309,7 @@ export const Login: React.FC = () => {
       {/* Fondo Canvas Generativo */}
       <canvas ref={canvasRef} className="login-canvas-backdrop" />
 
-      <div className="login-card animate-fade-in">
+      <div className="login-card animate-scale-in">
         {authMode !== 'login' && authMode !== 'update_password' && (
           <button 
             type="button" 
@@ -343,7 +353,7 @@ export const Login: React.FC = () => {
         )}
 
         <form onSubmit={handleAuth} className="login-form">
-          {/* CAMPOS ADICIONALES PARA REGISTRO */}
+          {/* CAMPOS DE REGISTRO */}
           {authMode === 'register' && (
             <>
               <div className="form-group">
@@ -364,7 +374,7 @@ export const Login: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="reg-business">Nombre de tu Negocio / Cartera (Opcional)</label>
+                <label className="form-label" htmlFor="reg-business">Nombre del Negocio / Cartera (Opcional)</label>
                 <div className="input-wrapper">
                   <Building2 className="input-icon" size={18} />
                   <input
@@ -398,7 +408,7 @@ export const Login: React.FC = () => {
             </>
           )}
 
-          {/* CAMPO DE EMAIL (LOGIN, REGISTER, FORGOT) */}
+          {/* CAMPO DE EMAIL */}
           {authMode !== 'update_password' && (
             <div className="form-group">
               <label className="form-label" htmlFor="auth-email">Correo Electrónico *</label>
@@ -418,7 +428,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* CAMPO DE CONTRASEÑA (LOGIN, REGISTER, UPDATE) */}
+          {/* CAMPO DE CONTRASEÑA */}
           {authMode !== 'forgot_password' && (
             <div className="form-group">
               <div className="form-label-row">
@@ -457,6 +467,7 @@ export const Login: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
                   tabIndex={-1}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -570,17 +581,16 @@ export const Login: React.FC = () => {
           z-index: 10;
           width: 100%;
           max-width: 440px;
-          background: rgba(17, 24, 40, 0.88);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(0, 242, 157, 0.25);
+          background: var(--bg-card);
+          border: 1.5px solid var(--border-color);
           border-radius: 24px;
-          padding: 30px 24px;
-          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 242, 157, 0.08);
+          padding: 32px 24px;
+          box-shadow: var(--shadow-lg);
           display: flex;
           flex-direction: column;
           gap: 18px;
           margin: auto;
+          color: var(--text-primary);
         }
 
         .login-back-btn {
@@ -591,11 +601,16 @@ export const Login: React.FC = () => {
           border: 1px solid var(--border-color);
           color: var(--text-secondary);
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 700;
           padding: 6px 12px;
           border-radius: 10px;
           align-self: flex-start;
           cursor: pointer;
+          transition: background-color 0.2s, color 0.2s;
+        }
+
+        .login-back-btn:hover {
+          color: var(--primary);
         }
 
         .login-header {
@@ -607,21 +622,21 @@ export const Login: React.FC = () => {
         }
 
         .login-logo-wrapper {
-          height: 60px;
-          width: 60px;
-          border-radius: 18px;
-          background: linear-gradient(135deg, #111828, #1A243C);
-          border: 1px solid rgba(0, 242, 157, 0.4);
+          height: 56px;
+          width: 56px;
+          border-radius: 16px;
+          background: var(--bg-card);
+          border: 1.5px solid var(--border-color);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 20px rgba(0, 242, 157, 0.25);
+          box-shadow: 0 4px 16px var(--primary-glow);
           margin-bottom: 2px;
         }
 
         .login-logo-img {
-          height: 38px;
-          width: 38px;
+          height: 36px;
+          width: 36px;
           object-fit: contain;
         }
 
@@ -629,6 +644,10 @@ export const Login: React.FC = () => {
           font-size: 26px;
           font-weight: 800;
           letter-spacing: -0.5px;
+          color: var(--primary);
+        }
+
+        .dark .login-title {
           background: linear-gradient(135deg, #00F29D 0%, #38BDF8 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -636,6 +655,7 @@ export const Login: React.FC = () => {
 
         .login-subtitle {
           font-size: 13px;
+          font-weight: 500;
           color: var(--text-secondary);
           line-height: 1.4;
           max-width: 320px;
@@ -660,19 +680,23 @@ export const Login: React.FC = () => {
         }
 
         .form-label {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
         }
 
         .forgot-password-link {
           background: none;
           border: none;
           color: var(--primary);
-          font-size: 11px;
-          font-weight: 600;
+          font-size: 12px;
+          font-weight: 700;
           cursor: pointer;
           padding: 0;
+        }
+
+        .forgot-password-link:hover {
+          text-decoration: underline;
         }
 
         .input-wrapper {
@@ -683,28 +707,30 @@ export const Login: React.FC = () => {
 
         .input-icon {
           position: absolute;
-          left: 12px;
+          left: 14px;
           color: var(--text-tertiary);
           pointer-events: none;
         }
 
         .form-input {
           width: 100%;
-          height: 44px;
-          padding-left: 38px;
-          padding-right: 38px;
+          height: 46px;
+          padding-left: 42px;
+          padding-right: 42px;
           background: var(--bg-input);
-          border: 1px solid var(--border-color);
+          border: 1.5px solid var(--border-color);
           border-radius: 12px;
           color: var(--text-primary);
           font-size: 14px;
+          font-weight: 500;
           outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
         }
 
         .form-input:focus {
           border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(0, 242, 157, 0.15);
+          box-shadow: 0 0 0 3px var(--primary-glow);
+          background-color: var(--bg-card);
         }
 
         .password-toggle {
@@ -717,7 +743,8 @@ export const Login: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 4px;
+          padding: 6px;
+          border-radius: 8px;
         }
 
         .password-toggle:hover {
@@ -725,26 +752,27 @@ export const Login: React.FC = () => {
         }
 
         .login-submit-btn {
-          height: 46px;
-          margin-top: 4px;
-          background: linear-gradient(135deg, #00F29D 0%, #00D88B 100%);
-          color: #070A12;
+          height: 48px;
+          margin-top: 6px;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
           border: none;
           border-radius: 12px;
-          font-size: 14px;
-          font-weight: 800;
-          letter-spacing: 0.3px;
+          font-size: 15px;
+          font-weight: 700;
+          letter-spacing: 0.2px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
           cursor: pointer;
-          box-shadow: 0 4px 16px rgba(0, 242, 157, 0.3);
-          transition: transform 0.15s, box-shadow 0.15s;
+          box-shadow: 0 4px 16px var(--primary-glow);
+          transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
         }
 
         .login-submit-btn:active {
           transform: scale(0.98);
+          filter: brightness(0.95);
         }
 
         .login-submit-btn:disabled {
@@ -763,40 +791,46 @@ export const Login: React.FC = () => {
           border: none;
           color: var(--text-secondary);
           font-size: 13px;
+          font-weight: 500;
           cursor: pointer;
-          padding: 4px 8px;
+          padding: 6px 10px;
+          border-radius: 8px;
         }
 
         .auth-switch-btn strong {
           color: var(--primary);
+          font-weight: 700;
         }
 
         .login-footer {
           text-align: center;
           font-size: 11px;
+          font-weight: 500;
           color: var(--text-tertiary);
           line-height: 1.4;
         }
 
         .error-banner {
-          background: rgba(255, 56, 92, 0.1);
-          border: 1px solid rgba(255, 56, 92, 0.3);
-          color: #FF385C;
+          background: rgba(var(--danger-rgb), 0.1);
+          border: 1px solid rgba(var(--danger-rgb), 0.3);
+          color: var(--danger);
           padding: 10px 14px;
           border-radius: 12px;
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 600;
           display: flex;
           align-items: center;
           gap: 8px;
         }
 
         .success-banner {
-          background: rgba(0, 242, 157, 0.1);
-          border: 1px solid rgba(0, 242, 157, 0.3);
-          color: #00F29D;
+          background: rgba(var(--success-rgb), 0.1);
+          border: 1px solid rgba(var(--success-rgb), 0.3);
+          color: var(--success);
           padding: 10px 14px;
           border-radius: 12px;
-          font-size: 12px;
+          font-size: 13px;
+          font-weight: 600;
           display: flex;
           align-items: center;
           gap: 8px;

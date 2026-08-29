@@ -137,31 +137,39 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
 
         .form-group input {
           width: 100%;
-          padding: 12px;
-          border-radius: 10px;
-          border: 1px solid var(--border-color);
+          height: 46px;
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1.5px solid var(--border-color);
           background-color: var(--bg-input);
           color: var(--text-primary);
-          font-size: 15px;
+          font-size: 14px;
+          font-weight: 500;
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .form-group input:focus {
           border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+          box-shadow: 0 0 0 3px var(--primary-glow);
+          background-color: var(--bg-card);
         }
 
         .form-submit-btn {
-          margin-top: 8px;
+          margin-top: 10px;
           width: 100%;
-          padding: 14px;
+          height: 48px;
           border-radius: 12px;
-          background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-          color: white;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
           font-size: 15px;
-          font-weight: 600;
-          box-shadow: 0 4px 10px rgba(14, 165, 233, 0.2);
+          font-weight: 700;
+          box-shadow: 0 4px 16px var(--primary-glow);
+          transition: transform 0.15s ease, filter 0.2s ease;
+        }
+
+        .form-submit-btn:active {
+          transform: scale(0.98);
         }
       `}</style>
     </Modal>
