@@ -23,7 +23,7 @@ export const LoanReceiptModal: React.FC<LoanReceiptModalProps> = ({ isOpen, onCl
   };
 
   const handleSendWhatsApp = () => {
-    const message = `*PRESTALO - Comprobante de Crédito*
+    const message = `*CREDIPRESTA - Comprobante de Crédito*
 ---------------------------------------
 *Cliente:* ${loan.clientName}
 *Capital Prestado:* ${formatCurrency(loan.capital)}

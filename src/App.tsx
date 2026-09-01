@@ -18,12 +18,63 @@ import { DeleteAccountModal } from './components/auth/DeleteAccountModal';
 import { storageService } from './services/storageService';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
+import { Capacitor } from '@capacitor/core';
+import { Landing } from './pages/Landing';
 import { Login } from './components/auth/Login';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from './types';
 
+// Detectar si la app corre como aplicación nativa (Android/iOS) o PWA instalada
+const isNativeOrStandalone = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  // 1. Capacitor Nativo (Android / iOS)
+  if (Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'web') {
+    return true;
+  }
+
+  // 2. Esquemas o hosts de WebView nativo
+  if (
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'ionic:' ||
+    (window.location.hostname === 'localhost' && !window.location.port)
+  ) {
+    return true;
+  }
+
+  // 3. PWA Standalone instalada en pantalla de inicio
+  const isStandalone = 
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://');
+
+  return isStandalone;
+};
+
+// Determinar vista pública inicial según la URL / hash del navegador
+const getInitialPublicView = (): 'landing' | 'login' | 'privacidad' | 'terminos' => {
+  // En apps nativas o PWA instalada nunca ir a landing
+  if (isNativeOrStandalone()) {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path.includes('privacidad') || hash.includes('privacidad') || path.includes('privacy')) return 'privacidad';
+    if (path.includes('terminos') || hash.includes('terminos') || path.includes('terms')) return 'terminos';
+    return 'login';
+  }
+
+  const path = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+
+  if (path.includes('privacidad') || hash.includes('privacidad') || path.includes('privacy')) return 'privacidad';
+  if (path.includes('terminos') || hash.includes('terminos') || path.includes('terms')) return 'terminos';
+  if (path.includes('login') || hash.includes('login') || path.includes('auth')) return 'login';
+
+  return 'landing';
+};
+
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('inicio');
+  const [publicView, setPublicView] = useState<'landing' | 'login' | 'privacidad' | 'terminos'>(getInitialPublicView);
   
   // State de Autenticación
   const [session, setSession] = useState<any>(null);
@@ -71,6 +122,13 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     let active = true;
+
+    // Escuchar cambios de URL/Hash para navegación directa
+    const handleUrlChange = () => {
+      setPublicView(getInitialPublicView());
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
 
     // 1. Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -120,11 +178,15 @@ const MainApp: React.FC = () => {
     const handleSyncUpdate = () => {
       if (active && session) refreshData();
     };
+    window.addEventListener('credipresta_sync_updated', handleSyncUpdate);
     window.addEventListener('prestalo_sync_updated', handleSyncUpdate);
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('credipresta_sync_updated', handleSyncUpdate);
       window.removeEventListener('prestalo_sync_updated', handleSyncUpdate);
     };
   }, [session ? session.user.id : null]);
@@ -212,7 +274,31 @@ const MainApp: React.FC = () => {
   }
 
   if (!session) {
-    return <Login />;
+    const isNative = isNativeOrStandalone();
+
+    if (publicView === 'privacidad') {
+      return <PrivacyPolicy onBack={() => setPublicView(isNative ? 'login' : 'landing')} />;
+    }
+    if (publicView === 'terminos') {
+      return <TermsAndConditions onBack={() => setPublicView(isNative ? 'login' : 'landing')} />;
+    }
+    if (publicView === 'login' || isNative) {
+      return (
+        <Login 
+          onBackToLanding={isNative ? undefined : () => setPublicView('landing')}
+          onOpenTerms={() => setPublicView('terminos')}
+          onOpenPrivacy={() => setPublicView('privacidad')}
+        />
+      );
+    }
+    return (
+      <Landing
+        onOpenLogin={() => setPublicView('login')}
+        onOpenRegister={() => setPublicView('login')}
+        onOpenTerms={() => setPublicView('terminos')}
+        onOpenPrivacy={() => setPublicView('privacidad')}
+      />
+    );
   }
 
   const renderContent = () => {

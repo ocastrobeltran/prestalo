@@ -44,7 +44,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
           <div className="crown-badge-glow">
             <Crown size={28} className="crown-icon" />
           </div>
-          <h2 className="paywall-title">Prestalo <span className="pro-gradient-text">PRO</span></h2>
+          <h2 className="paywall-title">CrediPresta <span className="pro-gradient-text">PRO</span></h2>
           <p className="paywall-tagline">Lleva tu negocio de préstamos al siguiente nivel profesional</p>
 
           {isTrialActive && (
@@ -102,7 +102,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ isOpen, onClose }) =
             onClick={handleSubscribe}
             disabled={isProcessing}
           >
-            {isProcessing ? 'Conectando con Google Play...' : 'Comenzar con Prestalo PRO'}
+            {isProcessing ? 'Conectando con Google Play...' : 'Comenzar con CrediPresta PRO'}
           </button>
           
           <p className="legal-disclaimer-text">

@@ -1,6 +1,7 @@
-# Préstalo 💸 — Sistema Móvil-Primero de Gestión de Cobros y Préstamos
+# CrediPresta 💸 — Sistema Inteligente de Gestión de Cobros y Préstamos
+**Sitio Web Oficial:** [credipresta.com](https://credipresta.com)
 
-**Préstalo** es una Aplicación Web Progresiva (PWA) de alto rendimiento diseñada específicamente para dispositivos móviles, orientada a prestamistas y cobradores que gestionan operaciones de crédito diario ("gota a gota", cobros semanales, quincenales o mensuales) en la calle.
+**CrediPresta** es una plataforma y aplicación móvil/web de alto rendimiento diseñada para prestamistas, microempresarios y cobradores que gestionan operaciones de crédito diario, semanal, quincenal o mensual.
 
 La aplicación combina la velocidad y confiabilidad de una experiencia **Offline-First** (funciona al 100% sin conexión a internet en zonas rurales o de señal inestable) con el respaldo y sincronización en la nube en tiempo real a través de **Supabase**.
 
@@ -130,7 +131,7 @@ La aplicación está completamente optimizada para ser empaquetada como aplicaci
    ```
 2. **Inicializar el proyecto**:
    ```bash
-   npx cap init Prestalo com.prestalo.app --web-dir=dist
+   npx cap init CrediPresta com.credipresta.app --web-dir=dist
    ```
 3. **Añadir Plataformas Nativas**:
    ```bash

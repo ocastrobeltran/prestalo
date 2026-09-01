@@ -17,7 +17,13 @@ import {
 
 type AuthMode = 'login' | 'register' | 'forgot_password' | 'update_password';
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
+  onBackToLanding?: () => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBackToLanding }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
 
   // Campos de formulario
@@ -259,7 +265,7 @@ export const Login: React.FC = () => {
         });
 
         if (data?.session) {
-          setSuccessMsg('¡Cuenta creada con éxito! Bienvenido a Prestalo.');
+          setSuccessMsg('¡Cuenta creada con éxito! Bienvenido a CrediPresta.');
         } else {
           setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.');
           setTimeout(() => setAuthMode('login'), 2000);
@@ -310,26 +316,37 @@ export const Login: React.FC = () => {
       <canvas ref={canvasRef} className="login-canvas-backdrop" />
 
       <div className="login-card animate-scale-in">
-        {authMode !== 'login' && authMode !== 'update_password' && (
-          <button 
-            type="button" 
-            className="login-back-btn" 
-            onClick={() => {
-              setAuthMode('login');
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Volver a Iniciar Sesión</span>
-          </button>
-        )}
+        <div className="login-top-nav">
+          {authMode !== 'login' && authMode !== 'update_password' ? (
+            <button 
+              type="button" 
+              className="login-back-btn" 
+              onClick={() => {
+                setAuthMode('login');
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Volver a Iniciar Sesión</span>
+            </button>
+          ) : onBackToLanding ? (
+            <button 
+              type="button" 
+              className="login-back-btn" 
+              onClick={onBackToLanding}
+            >
+              <ArrowLeft size={16} />
+              <span>Volver al Sitio Web</span>
+            </button>
+          ) : <div />}
+        </div>
 
         <div className="login-header">
           <div className="login-logo-wrapper">
-            <img src="/logo.png" alt="Préstalo Logo" className="login-logo-img" />
+            <img src="/logo.png" alt="CrediPresta Logo" className="login-logo-img" />
           </div>
-          <h1 className="login-title">Préstalo</h1>
+          <h1 className="login-title">CrediPresta</h1>
           <p className="login-subtitle">
             {authMode === 'register' && 'Crea tu cuenta y comienza a gestionar tus créditos'}
             {authMode === 'login' && 'Gestión Inteligente de Cobros y Préstamos'}
@@ -547,6 +564,21 @@ export const Login: React.FC = () => {
 
         <div className="login-footer">
           <p>Tus datos financieros están 100% aislados y protegidos con cifrado de extremo a extremo.</p>
+          {(onOpenTerms || onOpenPrivacy) && (
+            <div className="login-legal-links">
+              {onOpenTerms && (
+                <button type="button" className="login-legal-btn" onClick={onOpenTerms}>
+                  Términos y Condiciones
+                </button>
+              )}
+              {onOpenTerms && onOpenPrivacy && <span className="login-legal-dot">•</span>}
+              {onOpenPrivacy && (
+                <button type="button" className="login-legal-btn" onClick={onOpenPrivacy}>
+                  Política de Privacidad
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -808,6 +840,33 @@ export const Login: React.FC = () => {
           font-weight: 500;
           color: var(--text-tertiary);
           line-height: 1.4;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .login-legal-links {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 4px;
+        }
+
+        .login-legal-btn {
+          background: none;
+          border: none;
+          color: var(--primary);
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
+          text-decoration: underline;
+        }
+
+        .login-legal-dot {
+          color: var(--text-tertiary);
+          font-size: 10px;
         }
 
         .error-banner {

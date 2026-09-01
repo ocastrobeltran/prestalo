@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.prestalo.app',
-  appName: 'Prestalo',
+  appId: 'com.credipresta.app',
+  appName: 'CrediPresta',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

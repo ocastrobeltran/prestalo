@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'perfil': return 'Mi Perfil';
       case 'terminos': return 'Términos de Uso';
       case 'privacidad': return 'Privacidad';
-      default: return 'Prestalo';
+      default: return 'CrediPresta';
     }
   };
 
@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="header no-print">
       <div className="header-left">
         <div className="header-brand-container">
-          <img src="/logo.png" alt="Préstalo Logo" className="header-brand-logo" />
+          <img src="/logo.png" alt="CrediPresta Logo" className="header-brand-logo" />
           <h1 className="header-title">{getTitle()}</h1>
         </div>
       </div>

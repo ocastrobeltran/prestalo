@@ -1,4 +1,4 @@
-package com.prestalo.app;
+package com.credipresta.app;
 
 import com.getcapacitor.BridgeActivity;
 

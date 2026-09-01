@@ -19,13 +19,13 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
         <div className="legal-header">
           <ShieldCheck size={32} className="legal-icon" />
           <h1>Política de Privacidad</h1>
-          <p className="legal-date">Última actualización: Agosto 2026</p>
+          <p className="legal-date">Sitio Oficial: credipresta.com | Última actualización: Agosto 2026</p>
         </div>
 
         <div className="legal-section">
           <h3>1. Compromiso con tu Privacidad</h3>
           <p>
-            En <strong>Prestalo</strong> nos tomamos muy en serio la seguridad y privacidad de tu información financiera. Esta Política describe cómo recopilamos, utilizamos, almacenamos y protegemos tus datos personales conforme a los estándares internacionales (GDPR, CCPA) y las directrices de privacidad de <strong>Google Play</strong> y <strong>Apple App Store</strong>.
+            En <strong>CrediPresta</strong> (disponible a través de <strong>credipresta.com</strong> y sus aplicaciones móviles) nos tomamos muy en serio la seguridad y privacidad de tu información financiera. Esta Política describe cómo recopilamos, utilizamos, almacenamos y protegemos tus datos personales conforme a los estándares internacionales (GDPR, CCPA) y las directrices de privacidad de <strong>Google Play</strong> y <strong>Apple App Store</strong>.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
         <div className="legal-section">
           <h3>4. Seguridad y Cifrado</h3>
           <p>
-            Toda la comunicación entre tu dispositivo móvil y la nube se realiza a través de conexiones seguras y cifradas mediante protocolo <strong>HTTPS / TLS 1.3</strong>. Los datos en reposo están protegidos con políticas de aislamiento a nivel de fila (RLS).
+            Toda la comunicación entre tu dispositivo móvil/navegador web y la nube se realiza a través de conexiones seguras y cifradas mediante protocolo <strong>HTTPS / TLS 1.3</strong>. Los datos en reposo están protegidos con políticas de aislamiento a nivel de fila (RLS) en bases de datos PostgreSQL de alto rendimiento.
           </p>
         </div>
 
@@ -62,17 +62,25 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
             Tienes derecho a acceder, rectificar, exportar o eliminar definitivamente todos tus datos en cualquier momento. La opción de <strong>"Eliminar Cuenta y Datos"</strong> dentro de la app borra en cascada e inmediatamente todos tus registros de nuestros servidores sin posibilidad de recuperación.
           </p>
         </div>
+
+        <div className="legal-section">
+          <h3>6. Contacto y Soporte</h3>
+          <p>
+            Para consultas relacionadas con esta política de privacidad o el ejercicio de tus derechos de protección de datos, puedes comunicarte con nuestro equipo oficial a través de: <strong>soporte@credipresta.com</strong> o visitando <strong>https://credipresta.com</strong>.
+          </p>
+        </div>
       </div>
 
       <style>{`
         .legal-page-container {
-          padding: 20px 16px;
+          padding: clamp(16px, 3vw, 24px) 16px;
           padding-bottom: 90px;
           display: flex;
           flex-direction: column;
           gap: 16px;
-          max-width: 600px;
+          max-width: 780px;
           margin: 0 auto;
+          width: 100%;
         }
 
         .legal-back-btn {
@@ -82,18 +90,24 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
           color: var(--primary);
           font-size: 14px;
           font-weight: 700;
-          padding: 8px 12px;
+          padding: 8px 14px;
           background: var(--bg-card);
           border: 1px solid var(--border-color);
           border-radius: 12px;
           align-self: flex-start;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .legal-back-btn:hover {
+          background-color: var(--bg-elevated);
         }
 
         .legal-card {
           background: var(--bg-card);
           border: 1px solid var(--border-color);
           border-radius: 20px;
-          padding: 24px;
+          padding: clamp(20px, 4vw, 32px);
           display: flex;
           flex-direction: column;
           gap: 20px;
@@ -116,7 +130,7 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
         }
 
         .legal-header h1 {
-          font-size: 22px;
+          font-size: clamp(20px, 3.5vw, 26px);
           font-weight: 800;
         }
 
@@ -132,15 +146,15 @@ export const PrivacyPolicy: React.FC<PrivacyProps> = ({ onBack }) => {
         }
 
         .legal-section h3 {
-          font-size: 15px;
+          font-size: clamp(14px, 2vw, 16px);
           font-weight: 700;
           color: var(--text-primary);
         }
 
         .legal-section p {
-          font-size: 13px;
+          font-size: 13.5px;
           color: var(--text-secondary);
-          line-height: 1.5;
+          line-height: 1.6;
         }
       `}</style>
     </div>

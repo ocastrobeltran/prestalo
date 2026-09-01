@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Prestalo</string>
-    <string name="title_activity_main">Prestalo</string>
-    <string name="package_name">com.prestalo.app</string>
-    <string name="custom_url_scheme">com.prestalo.app</string>
+    <string name="app_name">CrediPresta</string>
+    <string name="title_activity_main">CrediPresta</string>
+    <string name="package_name">com.credipresta.app</string>
+    <string name="custom_url_scheme">com.credipresta.app</string>
 </resources>

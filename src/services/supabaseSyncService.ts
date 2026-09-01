@@ -10,7 +10,7 @@ export const setSyncUserId = (userId: string | null) => {
 };
 
 const getKey = (baseKey: string) => {
-  return currentUserId ? `prestalo_${currentUserId}_${baseKey}` : `prestalo_${baseKey}`;
+  return currentUserId ? `credipresta_${currentUserId}_${baseKey}` : `credipresta_${baseKey}`;
 };
 
 const getLocal = <T>(baseKey: string, fallback: T): T => {
@@ -436,7 +436,7 @@ export const supabaseSyncService = {
       }
 
       this.setStatus('synced');
-      window.dispatchEvent(new Event('prestalo_sync_updated'));
+      window.dispatchEvent(new Event('credipresta_sync_updated'));
       if (onComplete) onComplete();
       return true;
     } catch (err) {

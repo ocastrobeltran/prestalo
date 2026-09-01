@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'apple-touch-icon.png', 'favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Prestalo - Gestor de Préstamos',
-        short_name: 'Prestalo',
-        description: 'Aplicación PWA móvil para la operativa diaria y cobros de préstamos.',
+        name: 'CrediPresta - Gestor de Préstamos y Cobros',
+        short_name: 'CrediPresta',
+        description: 'Aplicación para la gestión de créditos, cobros diarios y control de cartera.',
         theme_color: '#0ea5e9',
         background_color: '#0b0f19',
         display: 'standalone',

@@ -119,7 +119,7 @@ export const Profile: React.FC<ProfileProps> = ({
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(backupStr);
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `prestalo_backup_${new Date().toISOString().split('T')[0]}.json`);
+    downloadAnchor.setAttribute("download", `credipresta_backup_${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -179,7 +179,7 @@ export const Profile: React.FC<ProfileProps> = ({
           <span>{getInitials()}</span>
         </div>
         <div className="profile-hero-info">
-          <h2>{profile.fullName || 'Usuario de Prestalo'}</h2>
+          <h2>{profile.fullName || 'Usuario de CrediPresta'}</h2>
           <p className="profile-hero-business">{profile.businessName || 'Cartera Personal'}</p>
           <span className="profile-hero-email">{sessionEmail || profile.email}</span>
         </div>
@@ -393,7 +393,7 @@ export const Profile: React.FC<ProfileProps> = ({
 
         <div className="profile-app-meta">
           <Info size={14} />
-          <span>Prestalo App v2.0.0 (Release para Android y Web)</span>
+          <span>CrediPresta App v2.0.0 (credipresta.com)</span>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { supabaseSyncService, computeCapitalBox, setSyncUserId } from './supabas
 let currentUserId: string | null = null;
 
 const getKey = (baseKey: string) => {
-  return currentUserId ? `prestalo_${currentUserId}_${baseKey}` : `prestalo_${baseKey}`;
+  return currentUserId ? `credipresta_${currentUserId}_${baseKey}` : `credipresta_${baseKey}`;
 };
 
 export const storageService = {
@@ -38,7 +38,7 @@ export const storageService = {
 
   // USER PROFILE
   getUserProfile(): UserProfile {
-    const data = localStorage.getItem(getKey('profile'));
+    const data = localStorage.getItem(getKey('profile')) || (currentUserId ? localStorage.getItem(`prestalo_${currentUserId}_profile`) : null);
     if (data) {
       try {
         return JSON.parse(data);
@@ -77,14 +77,17 @@ export const storageService = {
 
     const clientsKey = getKey('clients');
     if (force || !localStorage.getItem(clientsKey)) {
-      // Migración transparente: Si existen datos previos en claves globales, preservarlos para el usuario actual
-      const legacyClients = localStorage.getItem('prestalo_clients');
+      // Migración transparente: Si existen datos previos en claves globales o prestalo, preservarlos para el usuario actual
+      const legacyClients = (currentUserId && localStorage.getItem(`prestalo_${currentUserId}_clients`)) ||
+        localStorage.getItem('credipresta_clients') ||
+        localStorage.getItem('prestalo_clients');
+
       if (currentUserId && legacyClients && !force) {
         localStorage.setItem(getKey('clients'), legacyClients);
-        localStorage.setItem(getKey('loans'), localStorage.getItem('prestalo_loans') || JSON.stringify([]));
-        localStorage.setItem(getKey('installments'), localStorage.getItem('prestalo_installments') || JSON.stringify([]));
-        localStorage.setItem(getKey('capital'), localStorage.getItem('prestalo_capital') || JSON.stringify(defaultBox));
-        localStorage.setItem(getKey('transactions'), localStorage.getItem('prestalo_transactions') || JSON.stringify([]));
+        localStorage.setItem(getKey('loans'), localStorage.getItem(`prestalo_${currentUserId}_loans`) || localStorage.getItem('prestalo_loans') || JSON.stringify([]));
+        localStorage.setItem(getKey('installments'), localStorage.getItem(`prestalo_${currentUserId}_installments`) || localStorage.getItem('prestalo_installments') || JSON.stringify([]));
+        localStorage.setItem(getKey('capital'), localStorage.getItem(`prestalo_${currentUserId}_capital`) || localStorage.getItem('prestalo_capital') || JSON.stringify(defaultBox));
+        localStorage.setItem(getKey('transactions'), localStorage.getItem(`prestalo_${currentUserId}_transactions`) || localStorage.getItem('prestalo_transactions') || JSON.stringify([]));
       } else {
         localStorage.setItem(getKey('clients'), JSON.stringify([]));
         localStorage.setItem(getKey('loans'), JSON.stringify([]));
