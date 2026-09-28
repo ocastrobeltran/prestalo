@@ -130,7 +130,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         {/* Cabecera del Panel */}
         <div className="notif-header">
           <div className="notif-header-title-group">
-            <BellRing size={18} className="notif-header-icon" />
+            <div className="notif-header-icon-wrap">
+              <BellRing size={18} className="notif-header-icon" />
+            </div>
             <span className="notif-header-title">Notificaciones</span>
             {unreadCount > 0 && (
               <span className="notif-unread-badge">
@@ -147,7 +149,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 onClick={onMarkAllAsRead}
                 title="Marcar todas como leídas"
               >
-                <CheckCheck size={15} />
+                <CheckCheck size={14} />
                 <span className="notif-read-all-text">Leídas</span>
               </button>
             )}
@@ -157,7 +159,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               onClick={onClose}
               aria-label="Cerrar notificaciones"
             >
-              <X size={16} />
+              <X size={17} />
             </button>
           </div>
         </div>
@@ -244,9 +246,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(2px);
-          -webkit-backdrop-filter: blur(2px);
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(3px);
+          -webkit-backdrop-filter: blur(3px);
           z-index: 98;
           display: none;
         }
@@ -254,20 +256,24 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         @media (max-width: 640px) {
           .notif-backdrop {
             display: block;
+            z-index: 998;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
           }
         }
 
         .notif-dropdown-container {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 10px);
           right: 0;
-          width: 375px;
+          width: 380px;
           max-width: calc(100vw - 24px);
           background-color: var(--bg-card);
-          border: 1px solid var(--border-color);
-          border-radius: 18px;
-          box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-color);
-          z-index: 99;
+          border: 1.5px solid var(--border-color);
+          border-radius: 20px;
+          box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-color);
+          z-index: 100;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -288,26 +294,28 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         @media (max-width: 640px) {
           .notif-dropdown-container {
             position: fixed;
-            top: auto;
-            bottom: 74px;
+            top: calc(64px + env(safe-area-inset-top));
             left: 12px;
             right: 12px;
+            margin: 0 auto;
             width: auto;
-            max-width: none;
-            max-height: 80vh;
-            border-radius: 20px;
-            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
-            animation: notifSlideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 440px;
+            max-height: calc(100vh - 120px - env(safe-area-inset-top));
+            max-height: calc(100dvh - 120px - env(safe-area-inset-top));
+            border-radius: 22px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1.5px var(--border-color);
+            z-index: 999;
+            animation: notifDropSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           }
 
-          @keyframes notifSlideUpMobile {
+          @keyframes notifDropSheet {
             from {
               opacity: 0;
-              transform: translateY(16px);
+              transform: translateY(-12px) scale(0.97);
             }
             to {
               opacity: 1;
-              transform: translateY(0);
+              transform: translateY(0) scale(1);
             }
           }
         }
@@ -317,24 +325,33 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid var(--border-color);
+          gap: 10px;
+          border-bottom: 1.5px solid var(--border-color);
           background-color: var(--bg-card);
+          flex-shrink: 0;
         }
 
         .notif-header-title-group {
           display: flex;
           align-items: center;
           gap: 8px;
+          min-width: 0;
         }
 
-        .notif-header-icon {
+        .notif-header-icon-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           color: var(--primary);
+          flex-shrink: 0;
         }
 
         .notif-header-title {
           font-size: 15px;
-          font-weight: 700;
+          font-weight: 800;
           color: var(--text-primary);
+          letter-spacing: -0.2px;
+          white-space: nowrap;
         }
 
         .notif-unread-badge {
@@ -342,19 +359,21 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           font-weight: 700;
           background: rgba(var(--primary-rgb), 0.15);
           color: var(--primary);
-          padding: 2px 7px;
+          padding: 3px 8px;
           border-radius: 999px;
-          border: 1px solid rgba(var(--primary-rgb), 0.25);
+          border: 1px solid rgba(var(--primary-rgb), 0.3);
+          white-space: nowrap;
         }
 
         .notif-header-actions {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
+          flex-shrink: 0;
         }
 
         .notif-read-all-btn {
-          min-height: 34px;
+          height: 32px;
           padding: 0 10px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-color);
@@ -362,44 +381,47 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           color: var(--text-secondary);
           font-size: 12px;
           font-weight: 600;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           gap: 5px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s ease;
         }
 
         .notif-read-all-btn:hover {
           color: var(--primary);
           border-color: rgba(var(--primary-rgb), 0.4);
+          background: rgba(var(--primary-rgb), 0.08);
         }
 
         .notif-close-btn {
-          width: 34px;
-          height: 34px;
-          display: flex;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: transparent;
-          border: none;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
-          color: var(--text-tertiary);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: all 0.15s;
+          transition: all 0.15s ease;
         }
 
         .notif-close-btn:hover {
-          background: var(--bg-elevated);
           color: var(--text-primary);
+          border-color: var(--text-tertiary);
+          background: var(--bg-card);
         }
 
         .notif-permission-banner {
           background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08), rgba(56, 189, 248, 0.08));
-          border-bottom: 1px solid var(--border-color);
-          padding: 12px 16px;
+          border-bottom: 1.5px solid var(--border-color);
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
           gap: 10px;
+          flex-shrink: 0;
         }
 
         .notif-perm-content {
@@ -416,31 +438,34 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
         .notif-perm-text strong {
           display: block;
-          font-size: 12.5px;
+          font-size: 13px;
+          font-weight: 700;
           color: var(--text-primary);
         }
 
         .notif-perm-text p {
           font-size: 11.5px;
           color: var(--text-secondary);
-          line-height: 1.35;
+          line-height: 1.4;
           margin-top: 2px;
         }
 
         .notif-activate-perm-btn {
-          min-height: 36px;
+          min-height: 40px;
           background: var(--btn-primary-bg);
           color: var(--btn-primary-text);
-          font-size: 12px;
-          font-weight: 700;
+          font-size: 12.5px;
+          font-weight: 800;
           border: none;
           border-radius: 10px;
-          padding: 0 12px;
+          padding: 8px 14px;
           cursor: pointer;
-          transition: transform 0.15s, opacity 0.15s;
           display: flex;
           align-items: center;
           justify-content: center;
+          gap: 6px;
+          box-shadow: 0 4px 12px var(--primary-glow);
+          transition: transform 0.15s ease, filter 0.2s ease;
         }
 
         .notif-activate-perm-btn:active {
@@ -448,24 +473,26 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
 
         .notif-list-scroll {
-          max-height: 340px;
+          max-height: 380px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
         }
 
         .notif-empty-state {
-          padding: 32px 20px;
+          padding: 36px 20px;
           text-align: center;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
         }
 
         .notif-empty-icon-wrap {
-          width: 50px;
-          height: 50px;
+          width: 52px;
+          height: 52px;
           border-radius: 16px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-color);
@@ -473,7 +500,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           align-items: center;
           justify-content: center;
           color: var(--text-tertiary);
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
 
         .notif-empty-title {
@@ -485,22 +512,25 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         .notif-empty-desc {
           font-size: 12px;
           color: var(--text-secondary);
-          max-width: 250px;
-          line-height: 1.4;
+          max-width: 260px;
+          line-height: 1.45;
         }
 
         .notif-item {
           display: flex;
           align-items: flex-start;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 14px 16px;
           border-bottom: 1px solid var(--border-subtle);
           cursor: pointer;
-          transition: background-color 0.15s;
+          transition: background-color 0.15s ease;
           position: relative;
           text-align: left;
           user-select: none;
-          min-height: 48px;
+        }
+
+        .notif-item:last-child {
+          border-bottom: none;
         }
 
         .notif-item:hover,
@@ -510,40 +540,40 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
 
         .notif-item.unread {
-          background-color: rgba(var(--primary-rgb), 0.04);
+          background-color: rgba(var(--primary-rgb), 0.05);
         }
 
         .notif-item-icon-box {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          margin-top: 2px;
+          margin-top: 1px;
         }
 
         .notif-item-icon-box.today {
-          background: rgba(var(--primary-rgb), 0.15);
+          background: rgba(var(--primary-rgb), 0.14);
           color: var(--primary);
           border: 1px solid rgba(var(--primary-rgb), 0.3);
         }
 
         .notif-item-icon-box.overdue {
-          background: rgba(var(--danger-rgb), 0.15);
+          background: rgba(var(--danger-rgb), 0.14);
           color: var(--danger);
           border: 1px solid rgba(var(--danger-rgb), 0.3);
         }
 
         .notif-item-icon-box.tomorrow {
-          background: rgba(var(--info-rgb), 0.15);
+          background: rgba(var(--info-rgb), 0.14);
           color: var(--info);
           border: 1px solid rgba(var(--info-rgb), 0.3);
         }
 
         .notif-item-icon-box.system {
-          background: rgba(var(--accent-purple-rgb), 0.15);
+          background: rgba(var(--accent-purple-rgb), 0.14);
           color: var(--accent-purple);
           border: 1px solid rgba(var(--accent-purple-rgb), 0.3);
         }
@@ -551,6 +581,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         .notif-item-body {
           flex: 1;
           min-width: 0;
+          padding-right: 12px;
         }
 
         .notif-item-top {
@@ -558,11 +589,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           align-items: baseline;
           justify-content: space-between;
           gap: 8px;
-          margin-bottom: 3px;
+          margin-bottom: 4px;
         }
 
         .notif-item-title {
-          font-size: 13px;
+          font-size: 13.5px;
           font-weight: 700;
           color: var(--text-primary);
           white-space: nowrap;
@@ -571,16 +602,16 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
 
         .notif-item-time {
-          font-size: 10.5px;
+          font-size: 11px;
           color: var(--text-tertiary);
           flex-shrink: 0;
           font-weight: 500;
         }
 
         .notif-item-text {
-          font-size: 12px;
+          font-size: 12.5px;
           color: var(--text-secondary);
-          line-height: 1.35;
+          line-height: 1.45;
           margin: 0;
           word-break: break-word;
         }
@@ -592,36 +623,37 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           background: var(--primary);
           box-shadow: 0 0 6px var(--primary-glow);
           position: absolute;
-          top: 14px;
-          right: 12px;
+          top: 18px;
+          right: 14px;
         }
 
         .notif-footer {
-          padding: 10px 14px;
-          border-top: 1px solid var(--border-color);
+          padding: 12px 16px;
+          border-top: 1.5px solid var(--border-color);
           background-color: var(--bg-card);
+          flex-shrink: 0;
         }
 
         .notif-footer-calendar-btn {
           width: 100%;
           min-height: 44px;
           background: var(--bg-elevated);
-          border: 1px solid var(--border-color);
+          border: 1.5px solid var(--border-color);
           border-radius: 12px;
           color: var(--text-primary);
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .notif-footer-calendar-btn:hover {
           background: rgba(var(--primary-rgb), 0.12);
-          border-color: rgba(var(--primary-rgb), 0.35);
+          border-color: rgba(var(--primary-rgb), 0.4);
           color: var(--primary);
         }
 
@@ -630,7 +662,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
 
         .notif-footer-calendar-btn:hover .arrow-icon {
-          transform: translateX(3px);
+          transform: translateX(4px);
         }
       `}</style>
     </>

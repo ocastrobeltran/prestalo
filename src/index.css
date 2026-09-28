@@ -279,6 +279,36 @@ textarea,
   transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
 }
 
+/* Reglas globales sólidas para .input-wrapper e iconos */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-wrapper .input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-wrapper input,
+.input-wrapper .form-input {
+  padding-left: 44px !important;
+}
+
+.input-wrapper input[type='password'],
+.input-wrapper .form-input[type='password'],
+.input-wrapper:has(.password-toggle) input,
+.input-wrapper:has(.password-toggle) .form-input {
+  padding-right: 44px !important;
+}
+
 textarea {
   height: auto;
   min-height: 80px;

@@ -740,20 +740,24 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
           position: relative;
           display: flex;
           align-items: center;
+          width: 100%;
         }
 
         .input-icon {
           position: absolute;
           left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
           color: var(--text-tertiary);
           pointer-events: none;
+          z-index: 2;
         }
 
         .form-input {
           width: 100%;
           height: 46px;
-          padding-left: 42px;
-          padding-right: 42px;
+          padding-left: 44px !important;
+          padding-right: 14px;
           background: var(--bg-input);
           border: 1.5px solid var(--border-color);
           border-radius: 12px;
@@ -762,6 +766,13 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
           font-weight: 500;
           outline: none;
           transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+        }
+
+        .input-wrapper input[type='password'],
+        .input-wrapper .form-input[type='password'],
+        .input-wrapper:has(.password-toggle) input,
+        .input-wrapper:has(.password-toggle) .form-input {
+          padding-right: 44px !important;
         }
 
         .form-input:focus {
@@ -773,6 +784,8 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
         .password-toggle {
           position: absolute;
           right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
           background: none;
           border: none;
           color: var(--text-tertiary);
@@ -782,6 +795,8 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
           justify-content: center;
           padding: 6px;
           border-radius: 8px;
+          z-index: 3;
+          transition: color 0.15s ease;
         }
 
         .password-toggle:hover {

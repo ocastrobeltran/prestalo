@@ -243,13 +243,15 @@ export const Profile: React.FC<ProfileProps> = ({
     <div className="profile-page-container animate-fade-in">
       {/* 1. Encabezado del Perfil */}
       <div className="profile-hero-card">
-        <div className="profile-avatar-circle">
-          <span>{getInitials()}</span>
-        </div>
-        <div className="profile-hero-info">
-          <h2>{profile.fullName || 'Usuario de CrediPresta'}</h2>
-          <p className="profile-hero-business">{profile.businessName || 'Cartera Personal'}</p>
-          <span className="profile-hero-email">{sessionEmail || profile.email}</span>
+        <div className="profile-hero-main">
+          <div className="profile-avatar-circle">
+            <span>{getInitials()}</span>
+          </div>
+          <div className="profile-hero-info">
+            <h2>{profile.fullName || 'Usuario de CrediPresta'}</h2>
+            <p className="profile-hero-business">{profile.businessName || 'Cartera Personal'}</p>
+            <span className="profile-hero-email">{sessionEmail || profile.email}</span>
+          </div>
         </div>
         <div className="profile-plan-pill">
           <Sparkles size={13} />
@@ -667,19 +669,29 @@ export const Profile: React.FC<ProfileProps> = ({
 
         .profile-hero-card {
           background: var(--bg-card);
-          border: 1px solid var(--border-color);
+          border: 1.5px solid var(--border-color);
           border-radius: 20px;
           padding: 20px;
           display: flex;
           align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
           gap: 16px;
           position: relative;
           box-shadow: var(--shadow-md);
         }
 
+        .profile-hero-main {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex: 1;
+          min-width: 220px;
+        }
+
         .profile-avatar-circle {
-          height: 60px;
-          width: 60px;
+          height: 58px;
+          width: 58px;
           border-radius: 18px;
           background: var(--btn-primary-bg);
           color: var(--btn-primary-text);
@@ -695,46 +707,66 @@ export const Profile: React.FC<ProfileProps> = ({
         .profile-hero-info {
           flex: 1;
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         .profile-hero-info h2 {
           font-size: 18px;
           font-weight: 800;
           color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          line-height: 1.25;
+          word-break: break-word;
+          margin: 0;
         }
 
         .profile-hero-business {
           font-size: 13px;
           color: var(--primary);
           font-weight: 600;
+          margin: 0;
+          line-height: 1.3;
         }
 
         .profile-hero-email {
           font-size: 12px;
           color: var(--text-secondary);
           display: block;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          word-break: break-all;
+          margin: 0;
+          line-height: 1.3;
         }
 
         .profile-plan-pill {
-          position: absolute;
-          top: 16px;
-          right: 16px;
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 5px;
           background: rgba(var(--primary-rgb), 0.12);
           border: 1px solid rgba(var(--primary-rgb), 0.3);
           color: var(--primary);
-          font-size: 11px;
+          font-size: 11.5px;
           font-weight: 800;
-          padding: 4px 8px;
-          border-radius: 12px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 540px) {
+          .profile-hero-card {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 14px;
+          }
+
+          .profile-hero-main {
+            width: 100%;
+          }
+
+          .profile-plan-pill {
+            align-self: flex-start;
+          }
         }
 
         .profile-success-banner {
@@ -752,18 +784,20 @@ export const Profile: React.FC<ProfileProps> = ({
 
         .profile-section-card {
           background: var(--bg-card);
-          border: 1px solid var(--border-color);
+          border: 1.5px solid var(--border-color);
           border-radius: 18px;
           padding: 18px;
           display: flex;
           flex-direction: column;
           gap: 16px;
+          box-shadow: var(--shadow-sm);
         }
 
         .profile-section-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          gap: 12px;
         }
 
         .section-title-group {
@@ -775,6 +809,7 @@ export const Profile: React.FC<ProfileProps> = ({
         .section-icon {
           color: var(--primary);
           margin-top: 2px;
+          flex-shrink: 0;
         }
 
         .profile-section-header h3 {
@@ -787,59 +822,175 @@ export const Profile: React.FC<ProfileProps> = ({
           font-size: 12px;
           color: var(--text-secondary);
           margin-top: 2px;
+          line-height: 1.4;
         }
 
         .profile-edit-btn {
+          min-height: 38px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-color);
           color: var(--primary);
-          font-size: 12px;
+          font-size: 12.5px;
           font-weight: 700;
-          padding: 6px 12px;
+          padding: 8px 16px;
           border-radius: 10px;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+        }
+
+        .profile-edit-btn:hover {
+          background: rgba(var(--primary-rgb), 0.12);
+          border-color: rgba(var(--primary-rgb), 0.35);
+        }
+
+        .profile-form {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
         }
 
         .profile-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 14px;
         }
 
-        @media (max-width: 500px) {
+        @media (max-width: 580px) {
           .profile-grid {
             grid-template-columns: 1fr;
+            gap: 14px;
           }
+        }
+
+        .profile-grid .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+        }
+
+        .profile-grid .form-label {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+          letter-spacing: -0.1px;
+        }
+
+        .profile-grid .input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        .profile-grid .input-icon {
+          position: absolute;
+          left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-tertiary);
+          pointer-events: none;
+          z-index: 2;
+          transition: color 0.2s ease;
+        }
+
+        .profile-grid .form-input {
+          width: 100%;
+          height: 48px;
+          padding-left: 44px !important;
+          padding-right: 14px;
+          background-color: var(--bg-input);
+          border: 1.5px solid var(--border-color);
+          border-radius: 12px;
+          color: var(--text-primary);
+          font-size: 14px;
+          font-weight: 500;
+          font-family: var(--font-sans);
+          outline: none;
+          transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+                      box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+                      background-color 0.2s ease,
+                      color 0.2s ease;
+        }
+
+        .profile-grid .form-input:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px var(--primary-glow);
+          background-color: var(--bg-card);
+        }
+
+        .profile-grid .form-input:disabled {
+          opacity: 0.85;
+          cursor: not-allowed;
+          background-color: var(--bg-elevated);
+          border-color: var(--border-subtle);
+          color: var(--text-primary);
+        }
+
+        .profile-grid .input-wrapper:focus-within .input-icon {
+          color: var(--primary);
         }
 
         .profile-form-actions {
           display: flex;
           justify-content: flex-end;
-          gap: 10px;
+          align-items: center;
+          gap: 12px;
           margin-top: 6px;
+          flex-wrap: wrap;
         }
 
         .profile-cancel-btn {
+          min-height: 42px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-color);
           color: var(--text-secondary);
           font-size: 13px;
           font-weight: 600;
-          padding: 8px 14px;
-          border-radius: 10px;
+          padding: 8px 16px;
+          border-radius: 12px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .profile-cancel-btn:hover:not(:disabled) {
+          color: var(--text-primary);
+          border-color: var(--text-tertiary);
         }
 
         .profile-save-btn {
+          min-height: 42px;
           background: var(--btn-primary-bg);
           color: var(--btn-primary-text);
           font-size: 13px;
           font-weight: 800;
-          padding: 8px 16px;
-          border-radius: 10px;
-          display: flex;
+          padding: 8px 18px;
+          border-radius: 12px;
+          display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 6px;
-          box-shadow: 0 4px 12px var(--primary-glow);
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 4px 14px var(--primary-glow);
+          transition: transform 0.15s ease, filter 0.2s ease;
+        }
+
+        .profile-save-btn:active {
+          transform: scale(0.97);
+        }
+
+        .profile-save-btn:disabled,
+        .profile-cancel-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         .profile-sync-row {
