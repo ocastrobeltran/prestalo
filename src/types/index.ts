@@ -113,3 +113,22 @@ export interface UserProfile {
   currencySymbol?: string;
   updatedAt?: string;
 }
+
+export interface NotificationSettings {
+  enabled: boolean;
+  notifyTodayDue: boolean;       // Notificar cuotas que vencen hoy
+  notifyOverdue: boolean;        // Notificar cuotas en mora
+  notifyTomorrowDue: boolean;    // Recordatorio anticipado 1 día antes
+  preferredTime: string;         // '08:00'
+  lastCheckDate?: string;        // 'YYYY-MM-DD' de la última notificación emitida
+}
+
+export interface AppNotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  type: 'today_due' | 'overdue' | 'tomorrow_due' | 'system';
+  timestamp: string;
+  read: boolean;
+  data?: any;
+}

@@ -1,4 +1,4 @@
-import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserProfile } from '../types';
+import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserProfile, NotificationSettings, AppNotificationItem } from '../types';
 import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel, calculateFinancialSummary } from './loanCalculator';
 import { supabaseSyncService, computeCapitalBox, setSyncUserId, safeUpsertInstallments } from './supabaseSyncService';
 
@@ -31,6 +31,8 @@ export const storageService = {
       localStorage.removeItem(getKey('capital'));
       localStorage.removeItem(getKey('transactions'));
       localStorage.removeItem(getKey('profile'));
+      localStorage.removeItem(getKey('notification_settings'));
+      localStorage.removeItem(getKey('notification_history'));
     }
     currentUserId = null;
     setSyncUserId(null);
@@ -644,5 +646,56 @@ export const storageService = {
     } catch (e) {
       throw new Error('Error al importar el respaldo: ' + (e as Error).message);
     }
+  },
+
+  // NOTIFICATION SETTINGS & HISTORY
+  getNotificationSettings(): NotificationSettings {
+    const defaultSettings: NotificationSettings = {
+      enabled: true,
+      notifyTodayDue: true,
+      notifyOverdue: true,
+      notifyTomorrowDue: true,
+      preferredTime: '08:00'
+    };
+
+    const data = localStorage.getItem(getKey('notification_settings'));
+    if (data) {
+      try {
+        return {
+          ...defaultSettings,
+          ...JSON.parse(data)
+        };
+      } catch (e) {
+        console.error('Error al parsear notificación settings:', e);
+      }
+    }
+    return defaultSettings;
+  },
+
+  saveNotificationSettings(settings: Partial<NotificationSettings>): NotificationSettings {
+    const current = this.getNotificationSettings();
+    const updated: NotificationSettings = {
+      ...current,
+      ...settings
+    };
+    localStorage.setItem(getKey('notification_settings'), JSON.stringify(updated));
+    return updated;
+  },
+
+  getNotificationHistory(): AppNotificationItem[] {
+    const data = localStorage.getItem(getKey('notification_history'));
+    if (data) {
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        console.error('Error al parsear historial de notificaciones:', e);
+      }
+    }
+    return [];
+  },
+
+  saveNotificationHistory(items: AppNotificationItem[]): void {
+    const cappedItems = items.slice(0, 100);
+    localStorage.setItem(getKey('notification_history'), JSON.stringify(cappedItems));
   }
 };

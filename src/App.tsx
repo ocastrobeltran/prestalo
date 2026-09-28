@@ -20,6 +20,7 @@ import { storageService } from './services/storageService';
 import { calculateFinancialSummary } from './services/loanCalculator';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
+import { notificationService } from './services/notificationService';
 import { Capacitor } from '@capacitor/core';
 import { Landing } from './pages/Landing';
 import { Login } from './components/auth/Login';
@@ -127,6 +128,17 @@ const MainApp: React.FC = () => {
     setTransactions(storageService.getTransactions());
   };
 
+  // Disparar evaluación y emisión de notificaciones diarias si corresponde
+  const triggerDailyNotifications = (currentInstallments: Installment[], currentLoans: Loan[]) => {
+    notificationService.checkAndTriggerDailyNotifications(currentInstallments, currentLoans).then(res => {
+      if (res.sent > 0) {
+        window.dispatchEvent(new CustomEvent('credipresta_notifications_updated'));
+      }
+    }).catch(err => {
+      console.warn('Error al verificar notificaciones diarias:', err);
+    });
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -145,8 +157,16 @@ const MainApp: React.FC = () => {
         if (session?.user) {
           storageService.setCurrentUser(session.user.id);
           refreshData();
+          const inst = storageService.getInstallments();
+          const lns = storageService.getLoans();
+          triggerDailyNotifications(inst, lns);
           supabaseSyncService.syncDown(() => {
-            if (active) refreshData();
+            if (active) {
+              refreshData();
+              const updatedInst = storageService.getInstallments();
+              const updatedLns = storageService.getLoans();
+              triggerDailyNotifications(updatedInst, updatedLns);
+            }
           });
         }
       }
@@ -160,8 +180,16 @@ const MainApp: React.FC = () => {
         if (newSession?.user) {
           storageService.setCurrentUser(newSession.user.id);
           refreshData();
+          const inst = storageService.getInstallments();
+          const lns = storageService.getLoans();
+          triggerDailyNotifications(inst, lns);
           supabaseSyncService.syncDown(() => {
-            if (active) refreshData();
+            if (active) {
+              refreshData();
+              const updatedInst = storageService.getInstallments();
+              const updatedLns = storageService.getLoans();
+              triggerDailyNotifications(updatedInst, updatedLns);
+            }
           });
         } else {
           // Limpiar datos al cerrar sesión
@@ -405,12 +433,20 @@ const MainApp: React.FC = () => {
     }
   };
 
+  const handleOpenCalendar = (filter?: 'all' | 'pending' | 'overdue' | 'paid') => {
+    if (filter) {
+      setCalendarFilter(filter);
+    }
+    setActiveTab('calendario');
+  };
+
   return (
     <>
       <Header 
         activeTab={activeTab} 
         onDataRefresh={refreshData}
         onOpenProfile={() => setActiveTab('perfil')}
+        onOpenCalendar={handleOpenCalendar}
       />
       
       <main>

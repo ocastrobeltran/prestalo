@@ -16,13 +16,18 @@ import {
   Check, 
   Sparkles,
   Info,
-  DollarSign
+  DollarSign,
+  Bell,
+  AlertCircle,
+  Clock,
+  Send
 } from 'lucide-react';
 import { storageService } from '../services/storageService';
 import { supabaseSyncService } from '../services/supabaseSyncService';
 import { supabase } from '../services/supabaseClient';
+import { notificationService } from '../services/notificationService';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import type { UserProfile } from '../types';
+import type { UserProfile, NotificationSettings } from '../types';
 import type { SyncStatus } from '../services/supabaseSyncService';
 
 interface ProfileProps {
@@ -49,6 +54,12 @@ export const Profile: React.FC<ProfileProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [showDangerZone, setShowDangerZone] = useState(false);
 
+  // Estados de Notificaciones
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(() => storageService.getNotificationSettings());
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<string | null>(null);
+
   useEffect(() => {
     // Obtener datos del usuario desde Supabase Auth
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -73,6 +84,63 @@ export const Profile: React.FC<ProfileProps> = ({
     });
     return () => unsubscribe();
   }, []);
+
+  // Verificar permisos del sistema y sincronizar configuración de notificaciones
+  useEffect(() => {
+    notificationService.checkPermissions().then(status => {
+      setPermissionStatus(status);
+    });
+
+    const handleUpdate = () => {
+      setNotifSettings(storageService.getNotificationSettings());
+    };
+    window.addEventListener('credipresta_notifications_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('credipresta_notifications_updated', handleUpdate);
+    };
+  }, []);
+
+  const handleToggleSetting = (key: keyof NotificationSettings) => {
+    const updated = {
+      ...notifSettings,
+      [key]: !notifSettings[key]
+    };
+    setNotifSettings(updated);
+    storageService.saveNotificationSettings(updated);
+    window.dispatchEvent(new CustomEvent('credipresta_notifications_updated'));
+  };
+
+  const handleRequestPermission = async () => {
+    const granted = await notificationService.requestPermissions();
+    const status = await notificationService.checkPermissions();
+    setPermissionStatus(status);
+    if (granted) {
+      setTestFeedback('¡Permisos de notificación activados con éxito!');
+    } else {
+      setTestFeedback('No se concedieron permisos de notificación.');
+    }
+    setTimeout(() => setTestFeedback(null), 3500);
+  };
+
+  const handleSendTestNotification = async () => {
+    setIsSendingTest(true);
+    try {
+      const ok = await notificationService.sendTestNotification();
+      const status = await notificationService.checkPermissions();
+      setPermissionStatus(status);
+      window.dispatchEvent(new CustomEvent('credipresta_notifications_updated'));
+      if (ok) {
+        setTestFeedback('🔔 ¡Notificación de prueba enviada! Revisa tus notificaciones y el historial.');
+      } else {
+        setTestFeedback('No se pudo enviar la notificación. Verifica que los permisos estén concedidos.');
+      }
+    } catch {
+      setTestFeedback('Error al emitir la notificación de prueba.');
+    } finally {
+      setIsSendingTest(false);
+      setTimeout(() => setTestFeedback(null), 4000);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,7 +435,160 @@ export const Profile: React.FC<ProfileProps> = ({
         </div>
       </div>
 
-      {/* 4. Términos Legales, Privacidad y Versión */}
+      {/* 4. Notificaciones y Recordatorios */}
+      <div className="profile-section-card">
+        <div className="profile-section-header">
+          <div className="section-title-group">
+            <Bell size={20} className="section-icon" />
+            <div>
+              <h3>Notificaciones y Recordatorios</h3>
+              <p className="section-subtitle">
+                Configura alertas push y recordatorios automáticos sobre tus cobros y mora.
+              </p>
+            </div>
+          </div>
+
+          <div className="notif-perm-status-wrap">
+            {permissionStatus === 'granted' ? (
+              <span className="perm-badge granted" title="Notificaciones habilitadas en el sistema">
+                <Check size={12} />
+                <span>Permitidas</span>
+              </span>
+            ) : permissionStatus === 'denied' ? (
+              <span className="perm-badge denied" title="Notificaciones bloqueadas en el navegador o sistema">
+                <AlertCircle size={12} />
+                <span>Bloqueadas</span>
+              </span>
+            ) : (
+              <span className="perm-badge prompt" title="Permiso aún no solicitado">
+                <Clock size={12} />
+                <span>Pendientes</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Feedback visual de test o permisos */}
+        {testFeedback && (
+          <div className="profile-notif-feedback animate-slide-up">
+            <Info size={15} />
+            <span>{testFeedback}</span>
+          </div>
+        )}
+
+        {/* Banner para solicitar permisos si no están otorgados */}
+        {permissionStatus !== 'granted' && (
+          <div className="notif-perm-request-box">
+            <div className="notif-perm-request-info">
+              <strong>Permiso de notificaciones requerido</strong>
+              <p>Para recibir avisos cuando la app esté en segundo plano, concede los permisos en tu dispositivo.</p>
+            </div>
+            <button 
+              type="button" 
+              className="notif-perm-request-btn"
+              onClick={handleRequestPermission}
+            >
+              Solicitar Permisos
+            </button>
+          </div>
+        )}
+
+        {/* Switches de Configuración */}
+        <div className="notif-settings-list">
+          {/* Switch General */}
+          <div className="notif-toggle-row main-toggle">
+            <div className="notif-toggle-info">
+              <span className="notif-toggle-title">Activar Notificaciones</span>
+              <p className="notif-toggle-desc">Habilitar emisión de alertas y recordatorios de la aplicación</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notifSettings.enabled}
+              aria-label="Activar o desactivar notificaciones"
+              className={`modern-toggle ${notifSettings.enabled ? 'active' : ''}`}
+              onClick={() => handleToggleSetting('enabled')}
+            >
+              <span className="modern-toggle-knob" />
+            </button>
+          </div>
+
+          {/* Sub-opciones */}
+          <div className={`notif-suboptions ${!notifSettings.enabled ? 'disabled' : ''}`}>
+            {/* Cobros hoy */}
+            <div className="notif-toggle-row">
+              <div className="notif-toggle-info">
+                <span className="notif-toggle-title">Cobros del día (Hoy)</span>
+                <p className="notif-toggle-desc">Avisar cuando haya cuotas programadas para cobrar hoy</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifSettings.notifyTodayDue}
+                aria-label="Cobros del día"
+                disabled={!notifSettings.enabled}
+                className={`modern-toggle ${notifSettings.notifyTodayDue ? 'active' : ''}`}
+                onClick={() => handleToggleSetting('notifyTodayDue')}
+              >
+                <span className="modern-toggle-knob" />
+              </button>
+            </div>
+
+            {/* Mora */}
+            <div className="notif-toggle-row">
+              <div className="notif-toggle-info">
+                <span className="notif-toggle-title">Cuotas y préstamos en mora</span>
+                <p className="notif-toggle-desc">Avisos urgentes sobre cuotas vencidas pendientes de pago</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifSettings.notifyOverdue}
+                aria-label="Cuotas en mora"
+                disabled={!notifSettings.enabled}
+                className={`modern-toggle ${notifSettings.notifyOverdue ? 'active' : ''}`}
+                onClick={() => handleToggleSetting('notifyOverdue')}
+              >
+                <span className="modern-toggle-knob" />
+              </button>
+            </div>
+
+            {/* Mañana */}
+            <div className="notif-toggle-row">
+              <div className="notif-toggle-info">
+                <span className="notif-toggle-title">Recordatorios anticipados (Mañana)</span>
+                <p className="notif-toggle-desc">Aviso preventivo 1 día antes del vencimiento programado</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifSettings.notifyTomorrowDue}
+                aria-label="Recordatorios anticipados"
+                disabled={!notifSettings.enabled}
+                className={`modern-toggle ${notifSettings.notifyTomorrowDue ? 'active' : ''}`}
+                onClick={() => handleToggleSetting('notifyTomorrowDue')}
+              >
+                <span className="modern-toggle-knob" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Botón de Envío de Notificación de Prueba */}
+        <div className="notif-test-action-wrap">
+          <button
+            type="button"
+            className="notif-test-btn"
+            onClick={handleSendTestNotification}
+            disabled={isSendingTest}
+          >
+            <Send size={15} className={isSendingTest ? 'spin' : ''} />
+            <span>{isSendingTest ? 'Enviando prueba...' : 'Enviar Notificación de Prueba'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 5. Términos Legales, Privacidad y Versión */}
       <div className="profile-section-card">
         <div className="profile-section-header">
           <div className="section-title-group">
@@ -810,6 +1031,252 @@ export const Profile: React.FC<ProfileProps> = ({
           font-size: 12px;
           font-weight: 700;
           cursor: pointer;
+        }
+
+        /* ESTILOS DE NOTIFICACIONES Y RECORDATORIOS */
+        .notif-perm-status-wrap {
+          display: flex;
+          align-items: center;
+        }
+
+        .perm-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 999px;
+        }
+
+        .perm-badge.granted {
+          background: rgba(var(--success-rgb), 0.12);
+          color: var(--success);
+          border: 1px solid rgba(var(--success-rgb), 0.3);
+        }
+
+        .perm-badge.denied {
+          background: rgba(var(--danger-rgb), 0.12);
+          color: var(--danger);
+          border: 1px solid rgba(var(--danger-rgb), 0.3);
+        }
+
+        .perm-badge.prompt {
+          background: rgba(var(--warning-rgb), 0.12);
+          color: var(--warning);
+          border: 1px solid rgba(var(--warning-rgb), 0.3);
+        }
+
+        .profile-notif-feedback {
+          background: rgba(var(--primary-rgb), 0.1);
+          border: 1px solid rgba(var(--primary-rgb), 0.3);
+          color: var(--primary);
+          padding: 10px 14px;
+          border-radius: 12px;
+          font-size: 12.5px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .notif-perm-request-box {
+          background: linear-gradient(135deg, rgba(var(--warning-rgb), 0.08), rgba(var(--primary-rgb), 0.08));
+          border: 1px solid rgba(var(--warning-rgb), 0.25);
+          border-radius: 14px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        @media (max-width: 540px) {
+          .notif-perm-request-box {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
+
+        .notif-perm-request-info strong {
+          display: block;
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .notif-perm-request-info p {
+          font-size: 11.5px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+          line-height: 1.35;
+        }
+
+        .notif-perm-request-btn {
+          height: 38px;
+          min-height: 44px;
+          padding: 0 14px;
+          background: var(--btn-primary-bg);
+          color: var(--btn-primary-text);
+          border: none;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.15s;
+        }
+
+        .notif-perm-request-btn:active {
+          transform: scale(0.96);
+        }
+
+        .notif-settings-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .notif-toggle-row {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-color);
+          border-radius: 14px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-height: 52px;
+        }
+
+        .notif-toggle-row.main-toggle {
+          background: rgba(var(--primary-rgb), 0.04);
+          border-color: rgba(var(--primary-rgb), 0.2);
+        }
+
+        .notif-toggle-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .notif-toggle-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+          display: block;
+        }
+
+        .notif-toggle-desc {
+          font-size: 11px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+          line-height: 1.3;
+        }
+
+        .notif-suboptions {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding-left: 8px;
+          border-left: 2px solid var(--border-color);
+          margin-left: 6px;
+          transition: opacity 0.2s;
+        }
+
+        .notif-suboptions.disabled {
+          opacity: 0.45;
+          pointer-events: none;
+        }
+
+        /* Modern Accessible Toggle Switch */
+        .modern-toggle {
+          width: 48px;
+          height: 28px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          padding: 8px 0;
+          position: relative;
+          flex-shrink: 0;
+        }
+
+        .modern-toggle:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
+          border-radius: 14px;
+        }
+
+        .modern-toggle::before {
+          content: '';
+          position: absolute;
+          width: 48px;
+          height: 26px;
+          background-color: var(--border-color);
+          border-radius: 13px;
+          transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modern-toggle.active::before {
+          background-color: var(--primary);
+        }
+
+        .modern-toggle-knob {
+          position: absolute;
+          left: 3px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: #ffffff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 1;
+        }
+
+        .modern-toggle.active .modern-toggle-knob {
+          transform: translateX(22px);
+        }
+
+        .modern-toggle:disabled {
+          cursor: not-allowed;
+        }
+
+        .notif-test-action-wrap {
+          display: flex;
+          justify-content: flex-end;
+          padding-top: 4px;
+        }
+
+        .notif-test-btn {
+          min-height: 44px;
+          padding: 0 16px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          color: var(--text-primary);
+          font-size: 13px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .notif-test-btn:hover:not(:disabled) {
+          border-color: rgba(var(--primary-rgb), 0.4);
+          color: var(--primary);
+          background: rgba(var(--primary-rgb), 0.08);
+        }
+
+        .notif-test-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
       `}</style>
     </div>

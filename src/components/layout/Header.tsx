@@ -1,18 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Sun, Moon, RefreshCw, Smartphone, Cloud, CloudOff, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sun, Moon, RefreshCw, Smartphone, Cloud, CloudOff, User, Bell } from 'lucide-react';
 import { supabaseSyncService } from '../../services/supabaseSyncService';
 import type { SyncStatus } from '../../services/supabaseSyncService';
+import { storageService } from '../../services/storageService';
+import { notificationService } from '../../services/notificationService';
+import { NotificationDropdown } from '../notifications/NotificationDropdown';
+import type { AppNotificationItem } from '../../types';
 
 interface HeaderProps {
   activeTab: string;
   onDataRefresh: () => void;
   onOpenProfile: () => void;
+  onOpenCalendar?: (filter?: 'all' | 'pending' | 'overdue' | 'paid') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   activeTab, 
   onDataRefresh,
-  onOpenProfile
+  onOpenProfile,
+  onOpenCalendar
 }) => {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || 
@@ -22,6 +28,34 @@ export const Header: React.FC<HeaderProps> = ({
   const [isInstallable, setIsInstallable] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(supabaseSyncService.getStatus());
   const [isSyncingManual, setIsSyncingManual] = useState(false);
+
+  // Estados de Notificaciones
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+
+  // Cargar notificaciones e historial
+  const loadNotifications = useCallback(() => {
+    const history = storageService.getNotificationHistory();
+    setNotifications(history);
+  }, []);
+
+  // Cargar permisos y notificaciones en montaje y eventos
+  useEffect(() => {
+    loadNotifications();
+    notificationService.checkPermissions().then(status => {
+      setPermissionStatus(status);
+    });
+
+    const handleNotificationsUpdate = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('credipresta_notifications_updated', handleNotificationsUpdate);
+    return () => {
+      window.removeEventListener('credipresta_notifications_updated', handleNotificationsUpdate);
+    };
+  }, [loadNotifications]);
 
   // Suscripción al estado de sincronización Supabase
   useEffect(() => {
@@ -86,6 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
     setIsSyncingManual(true);
     const ok = await supabaseSyncService.syncDown(() => {
       onDataRefresh();
+      loadNotifications();
     });
     setIsSyncingManual(false);
     if (ok) {
@@ -94,6 +129,39 @@ export const Header: React.FC<HeaderProps> = ({
       alert('Sin conexión o trabajando en Modo Offline.');
     }
   };
+
+  // Manejadores de Notificaciones
+  const handleMarkAllAsRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    storageService.saveNotificationHistory(updated);
+    setNotifications(updated);
+  };
+
+  const handleSelectNotification = (item: AppNotificationItem) => {
+    const updated = notifications.map(n => n.id === item.id ? { ...n, read: true } : n);
+    storageService.saveNotificationHistory(updated);
+    setNotifications(updated);
+    setIsNotifOpen(false);
+
+    if (item.type === 'overdue') {
+      onOpenCalendar?.('overdue');
+    } else if (item.type === 'today_due') {
+      onOpenCalendar?.('pending');
+    } else {
+      onOpenCalendar?.();
+    }
+  };
+
+  const handleRequestPermission = async () => {
+    const granted = await notificationService.requestPermissions();
+    setPermissionStatus(granted ? 'granted' : 'denied');
+  };
+
+  // Contadores de notificaciones
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const urgentCount = notifications.filter(
+    n => !n.read && (n.type === 'today_due' || n.type === 'overdue')
+  ).length;
 
   return (
     <header className="header no-print">
@@ -110,6 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="header-btn install-btn" 
             onClick={handleInstallApp}
             title="Instalar App"
+            aria-label="Instalar Aplicación"
           >
             <Smartphone size={18} />
           </button>
@@ -120,6 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`header-btn sync-badge ${syncStatus}`}
           onClick={handleSyncNow}
           disabled={isSyncingManual}
+          aria-label="Sincronización en la nube"
           title={
             syncStatus === 'synced' ? 'Sincronizado con la nube (Clic para actualizar)' :
             syncStatus === 'syncing' ? 'Sincronizando con la nube...' :
@@ -137,12 +207,45 @@ export const Header: React.FC<HeaderProps> = ({
             <Cloud size={17} style={{ color: '#ff385c' }} />
           )}
         </button>
+
+        {/* Botón de Notificaciones con Badge */}
+        <div className="header-notif-wrapper">
+          <button
+            className={`header-btn notif-trigger-btn ${isNotifOpen ? 'active' : ''} ${urgentCount > 0 ? 'urgent' : ''}`}
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            title="Notificaciones y Recordatorios"
+            aria-label={`Notificaciones ${unreadCount > 0 ? `(${unreadCount} no leídas)` : ''}`}
+            aria-expanded={isNotifOpen}
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className={`header-notif-badge ${urgentCount > 0 ? 'urgent' : ''}`}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <NotificationDropdown
+            isOpen={isNotifOpen}
+            onClose={() => setIsNotifOpen(false)}
+            notifications={notifications}
+            permissionStatus={permissionStatus}
+            onRequestPermission={handleRequestPermission}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onSelectNotification={handleSelectNotification}
+            onViewCalendar={() => {
+              setIsNotifOpen(false);
+              onOpenCalendar?.();
+            }}
+          />
+        </div>
         
         {/* Selector de Tema */}
         <button 
           className="header-btn" 
           onClick={() => setDarkMode(!darkMode)}
           title={darkMode ? "Activar Modo Claro" : "Activar Modo Oscuro"}
+          aria-label={darkMode ? "Activar Modo Claro" : "Activar Modo Oscuro"}
         >
           {darkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -152,6 +255,7 @@ export const Header: React.FC<HeaderProps> = ({
           className={`header-btn profile-btn ${activeTab === 'perfil' ? 'active' : ''}`}
           onClick={onOpenProfile}
           title="Mi Perfil y Ajustes"
+          aria-label="Mi Perfil y Ajustes"
         >
           <User size={18} />
         </button>
@@ -207,10 +311,16 @@ export const Header: React.FC<HeaderProps> = ({
           align-items: center;
         }
 
+        .header-notif-wrapper {
+          position: relative;
+        }
+
         .header-btn {
-          height: 36px;
-          width: 36px;
-          border-radius: 11px;
+          height: 38px;
+          width: 38px;
+          min-height: 44px;
+          min-width: 44px;
+          border-radius: 12px;
           background-color: var(--bg-card);
           border: 1px solid var(--border-color);
           color: var(--text-secondary);
@@ -218,6 +328,7 @@ export const Header: React.FC<HeaderProps> = ({
           align-items: center;
           justify-content: center;
           cursor: pointer;
+          position: relative;
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -228,26 +339,64 @@ export const Header: React.FC<HeaderProps> = ({
         .header-btn:hover {
           background-color: var(--bg-elevated);
           color: var(--primary);
-          border-color: rgba(0, 242, 157, 0.3);
+          border-color: rgba(var(--primary-rgb), 0.3);
         }
 
         .header-btn.active {
-          background-color: rgba(0, 242, 157, 0.15);
-          border-color: rgba(0, 242, 157, 0.4);
-          color: #00F29D;
-          box-shadow: 0 0 10px rgba(0, 242, 157, 0.2);
+          background-color: rgba(var(--primary-rgb), 0.15);
+          border-color: rgba(var(--primary-rgb), 0.4);
+          color: var(--primary);
+          box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .notif-trigger-btn.urgent {
+          border-color: rgba(var(--danger-rgb), 0.4);
+          color: var(--danger);
+        }
+
+        .header-notif-badge {
+          position: absolute;
+          top: -3px;
+          right: -3px;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 4px;
+          border-radius: 999px;
+          background: var(--primary);
+          color: var(--btn-primary-text);
+          font-size: 10px;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid var(--bg-card);
+          box-shadow: 0 0 8px var(--primary-glow);
+          pointer-events: none;
+        }
+
+        .header-notif-badge.urgent {
+          background: var(--danger);
+          color: #ffffff;
+          box-shadow: 0 0 10px rgba(var(--danger-rgb), 0.5);
+          animation: urgentPulse 1.8s infinite;
+        }
+
+        @keyframes urgentPulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
         }
 
         .install-btn {
           color: var(--primary);
-          border-color: rgba(0, 242, 157, 0.4);
+          border-color: rgba(var(--primary-rgb), 0.4);
           animation: pulse 2.5s infinite;
         }
 
         @keyframes pulse {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 242, 157, 0.4); }
-          70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(0, 242, 157, 0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 242, 157, 0); }
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(var(--primary-rgb), 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
         }
 
         .spin {
@@ -261,3 +410,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
