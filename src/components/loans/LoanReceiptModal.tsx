@@ -63,7 +63,7 @@ Gracias por su confianza.`;
     >
       <div className="receipt-container" id="printable-receipt">
         <div className="receipt-brand">
-          <h2>PRÉSTALO</h2>
+          <h2>CREDIPRESTA</h2>
           <p>Gestión de Crédito Directo</p>
         </div>
 

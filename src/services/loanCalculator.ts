@@ -93,12 +93,13 @@ export function calculateFinancialSummary(loans: Loan[], installments: Installme
     totalPaidCapital += paidCapital;
     totalPaidInterest += paidInterest;
 
-    // Pendientes (cuotas no pagadas completamente)
-    if (inst.status !== 'paid' && inst.amount > 0) {
+    // Pendientes / en mora (cuotas no pagadas completamente)
+    const isFullyPaid = (inst.status === 'paid' && !inst.isPactada) || inst.amount <= 0;
+    if (!isFullyPaid) {
       pendingCapital += inst.capitalAmount;
       pendingInterest += inst.interestAmount;
 
-      const isInstOverdue = isInstallmentOverdue(inst);
+      const isInstOverdue = isInstallmentOverdue(inst, loan);
       if (isInstOverdue) {
         overdueCapital += inst.capitalAmount;
         overdueInterest += inst.interestAmount;
@@ -286,22 +287,26 @@ export function isOverdue(dueDateStr: string): boolean {
 }
 
 /**
- * Determina si una cuota específica está vencida considerando el plazo de 1 mes de cuotas pactadas
+ * Determina si una cuota específica está vencida considerando el plazo de cuotas pactadas y el estado del préstamo
  */
-export function isInstallmentOverdue(inst: Installment): boolean {
+export function isInstallmentOverdue(inst: Installment, loan?: Loan): boolean {
   if (inst.amount <= 0 || (inst.status === 'paid' && !inst.isPactada)) return false;
   const todayStr = new Date().toISOString().split('T')[0];
   if (inst.isPactada) {
     const deadline = inst.pactDeadline || addMonths(inst.dueDate, 1);
     return todayStr > deadline;
   }
-  return inst.status === 'overdue' || inst.dueDate < todayStr;
+  if (inst.status === 'overdue' || inst.dueDate < todayStr) return true;
+  if (loan && (loan.status === 'overdue' || (loan.endDate && loan.endDate < todayStr && loan.status !== 'completed'))) {
+    return true;
+  }
+  return false;
 }
 
 /**
  * Obtiene el estado efectivo de una cuota: 'paid', 'pactada' (acuerdo vigente sin mora), 'overdue' (mora) o 'pending'
  */
-export function getInstallmentEffectiveStatus(inst: Installment): 'pending' | 'paid' | 'overdue' | 'pactada' {
+export function getInstallmentEffectiveStatus(inst: Installment, loan?: Loan): 'pending' | 'paid' | 'overdue' | 'pactada' {
   if (inst.amount <= 0 || (inst.status === 'paid' && !inst.isPactada)) return 'paid';
   const todayStr = new Date().toISOString().split('T')[0];
   if (inst.isPactada) {
@@ -310,6 +315,9 @@ export function getInstallmentEffectiveStatus(inst: Installment): 'pending' | 'p
     return 'pactada';
   }
   if (inst.status === 'overdue' || inst.dueDate < todayStr) return 'overdue';
+  if (loan && (loan.status === 'overdue' || (loan.endDate && loan.endDate < todayStr && loan.status !== 'completed'))) {
+    return 'overdue';
+  }
   return 'pending';
 }
 

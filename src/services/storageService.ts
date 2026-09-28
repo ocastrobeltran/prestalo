@@ -1,6 +1,6 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserProfile } from '../types';
 import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel } from './loanCalculator';
-import { supabaseSyncService, computeCapitalBox, setSyncUserId } from './supabaseSyncService';
+import { supabaseSyncService, computeCapitalBox, setSyncUserId, safeUpsertInstallments } from './supabaseSyncService';
 
 let currentUserId: string | null = null;
 
@@ -96,6 +96,71 @@ export const storageService = {
         localStorage.setItem(getKey('transactions'), JSON.stringify([]));
       }
     }
+
+    // Auto-sanación de cuotas huérfanas o faltantes al inicializar
+    this.healMissingInstallments();
+  },
+
+  // Mecanismo de auto-sanación (self-healing) de cuotas huérfanas o faltantes
+  healMissingInstallments(): Installment[] {
+    const rawLoans = localStorage.getItem(getKey('loans'));
+    if (!rawLoans) return [];
+
+    let loans: Loan[] = [];
+    let installments: Installment[] = [];
+    try {
+      loans = JSON.parse(rawLoans);
+      const rawInsts = localStorage.getItem(getKey('installments'));
+      installments = rawInsts ? JSON.parse(rawInsts) : [];
+    } catch (e) {
+      console.error('Error parseando datos para auto-sanación local:', e);
+      return [];
+    }
+
+    if (!Array.isArray(loans) || loans.length === 0) return [];
+    if (!Array.isArray(installments)) installments = [];
+
+    const existingLoanIds = new Set(installments.map(i => i.loanId));
+    const todayStr = new Date().toISOString().split('T')[0];
+    const healedInstallments: Installment[] = [];
+
+    for (const loan of loans) {
+      const isNotCompleted = loan.status === 'active' || loan.status === 'overdue' || (loan.status as string) !== 'completed';
+      if (isNotCompleted && !existingLoanIds.has(loan.id) && loan.installmentsCount > 0) {
+        console.warn(`[Self-Healing Local] Préstamo ${loan.id} (${loan.clientName}) no tiene cuotas. Regenerando ${loan.installmentsCount} cuotas...`);
+        const generated = generateInstallments({
+          loanId: loan.id,
+          clientId: loan.clientId,
+          clientName: loan.clientName,
+          capital: loan.capital,
+          interestRate: loan.interestRate,
+          paymentFrequency: loan.paymentFrequency,
+          installmentsCount: loan.installmentsCount,
+          startDate: loan.startDate
+        }).map(inst => {
+          const isPastDueDate = inst.dueDate < todayStr;
+          return {
+            ...inst,
+            userId: currentUserId || loan.userId || undefined,
+            status: (isPastDueDate || loan.status === 'overdue' ? 'overdue' : 'pending') as 'pending' | 'overdue'
+          };
+        });
+
+        installments.push(...generated);
+        healedInstallments.push(...generated);
+        existingLoanIds.add(loan.id);
+      }
+    }
+
+    if (healedInstallments.length > 0) {
+      localStorage.setItem(getKey('installments'), JSON.stringify(installments));
+      this.reconcileCapitalBox();
+      safeUpsertInstallments(healedInstallments, currentUserId || undefined).catch(err => {
+        console.error('[Self-Healing Local] Error al persistir cuotas regeneradas en Supabase:', err);
+      });
+    }
+
+    return healedInstallments;
   },
 
   // CLIENTS
@@ -226,11 +291,11 @@ export const storageService = {
     
     // Registrar transacción de reverso y reconciliar caja
     let tx: CapitalTransaction | undefined;
-    if (loan.status === 'active') {
+    if (loan.status === 'active' || loan.status === 'overdue') {
       tx = this.addTransaction({
         amount: loan.capital,
         type: 'expense',
-        description: `Eliminación de Préstamo Activo ID: ${loan.id}`
+        description: `Eliminación de Préstamo ${loan.status === 'overdue' ? 'en Mora' : 'Activo'} ID: ${loan.id}`
       });
     }
     const capitalBox = this.reconcileCapitalBox();
@@ -349,19 +414,25 @@ export const storageService = {
     installments[idx] = installment;
     localStorage.setItem(getKey('installments'), JSON.stringify(installments));
 
-    // Verificar si el préstamo se completó totalmente
+    // Verificar si el préstamo se completó totalmente o sigue en mora/activo
     const loanInstallments = installments.filter(i => i.loanId === installment.loanId);
     const allPaid = loanInstallments.every(i => i.status === 'paid' || i.amount <= 0);
     
     let updatedLoan: Loan | undefined;
-    if (allPaid) {
-      const loans = this.getLoans();
-      const lIdx = loans.findIndex(l => l.id === installment.loanId);
-      if (lIdx !== -1) {
+    const loans = this.getLoans();
+    const lIdx = loans.findIndex(l => l.id === installment.loanId);
+    if (lIdx !== -1) {
+      if (allPaid) {
         loans[lIdx].status = 'completed';
-        updatedLoan = loans[lIdx];
-        localStorage.setItem(getKey('loans'), JSON.stringify(loans));
+      } else {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isPastEnd = loans[lIdx].endDate < todayStr;
+        if (isPastEnd && loans[lIdx].status !== 'completed') {
+          loans[lIdx].status = 'overdue';
+        }
       }
+      updatedLoan = loans[lIdx];
+      localStorage.setItem(getKey('loans'), JSON.stringify(loans));
     }
 
     // Registrar transacción de ingreso en caja
@@ -414,6 +485,7 @@ export const storageService = {
     loan.totalToPay = Number(loan.totalToPay) + Number(interestAmount);
     loan.renewalsCount = (loan.renewalsCount || 0) + 1;
     loan.endDate = nextDueDate;
+    loan.status = nextDueDate >= todayStr ? 'active' : 'overdue';
     loans[loanIdx] = loan;
     localStorage.setItem(getKey('loans'), JSON.stringify(loans));
 

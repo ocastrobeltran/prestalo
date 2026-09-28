@@ -93,6 +93,10 @@ const MainApp: React.FC = () => {
   });
   const [transactions, setTransactions] = useState<CapitalTransaction[]>([]);
 
+  // Filtros iniciales de navegación
+  const [calendarFilter, setCalendarFilter] = useState<'all' | 'pending' | 'overdue' | 'paid'>('all');
+  const [loansFilter, setLoansFilter] = useState<'all' | 'active' | 'overdue' | 'completed'>('all');
+
   // Control de Modales
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
@@ -314,6 +318,14 @@ const MainApp: React.FC = () => {
             openNewClientModal={openNewClientModal}
             openNewLoanModal={() => openNewLoanModal()}
             onUpdateCapital={handleUpdateCapital}
+            onNavigateToOverdueCalendar={() => {
+              setCalendarFilter('overdue');
+              setActiveTab('calendario');
+            }}
+            onNavigateToOverdueLoans={() => {
+              setLoansFilter('overdue');
+              setActiveTab('prestamos');
+            }}
           />
         );
       case 'clientes':
@@ -337,6 +349,7 @@ const MainApp: React.FC = () => {
             onDeleteLoan={handleDeleteLoan}
             onViewReceipt={handleViewReceipt}
             onOpenPaymentModal={openPaymentModal}
+            initialStatusFilter={loansFilter}
           />
         );
       case 'calendario':
@@ -345,6 +358,7 @@ const MainApp: React.FC = () => {
             installments={installments}
             clients={clients}
             loans={loans}
+            initialFilterStatus={calendarFilter}
             onPayInstallment={(id) => {
               const inst = installments.find(i => i.id === id);
               if (inst) openPaymentModal(inst);

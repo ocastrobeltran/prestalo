@@ -9,14 +9,27 @@ interface CalendarProps {
   clients: Client[];
   loans?: Loan[];
   onPayInstallment: (installmentId: string) => void;
+  initialFilterStatus?: FilterStatus;
 }
 
 type CalendarViewMode = 'hoy' | 'mes' | '7d';
 type FilterStatus = 'all' | 'pending' | 'overdue' | 'paid';
 
-export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans = [], onPayInstallment }) => {
+export const Calendar: React.FC<CalendarProps> = ({ 
+  installments, 
+  clients, 
+  loans = [], 
+  onPayInstallment,
+  initialFilterStatus = 'all'
+}) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('mes');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialFilterStatus);
+
+  React.useEffect(() => {
+    if (initialFilterStatus) {
+      setFilterStatus(initialFilterStatus);
+    }
+  }, [initialFilterStatus]);
   
   // Fecha seleccionada para filtrar (dinámica según la fecha real del sistema)
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -40,6 +53,11 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
     return `${y}-${m}-${day}`;
   };
 
+  // Cuotas totales en mora real
+  const allOverdueInstallments = installments.filter(i => isInstallmentOverdue(i));
+  const totalOverdueCount = allOverdueInstallments.length;
+  const totalOverdueAmount = allOverdueInstallments.reduce((acc, curr) => acc + curr.amount, 0);
+
   // Incrementar/decrementar mes
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -61,6 +79,11 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
 
   // Obtener lista de cuotas filtradas según la vista seleccionada
   const getFilteredInstallments = () => {
+    // Si el filtro activo es 'overdue', mostrar TODAS las cuotas vencidas en mora sin restringir por fecha
+    if (filterStatus === 'overdue') {
+      return allOverdueInstallments;
+    }
+
     const todayStr = formatLocalDate(new Date());
     const selectedDateStr = formatLocalDate(selectedDate);
     
@@ -83,8 +106,6 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
         const eff = getInstallmentEffectiveStatus(i);
         return eff === 'pending' || eff === 'pactada';
       });
-    } else if (filterStatus === 'overdue') {
-      result = result.filter(i => isInstallmentOverdue(i));
     } else if (filterStatus === 'paid') {
       result = result.filter(i => i.status === 'paid' || i.amount <= 0);
     }
@@ -111,8 +132,12 @@ export const Calendar: React.FC<CalendarProps> = ({ installments, clients, loans
 
     const total = periodInstallments.length;
     const paid = periodInstallments.filter(i => i.status === 'paid' || i.amount <= 0).length;
-    const overdue = periodInstallments.filter(i => isInstallmentOverdue(i)).length;
-    const pending = total - paid - overdue;
+    // metrics.overdue debe reflejar la cantidad total real de cuotas en mora pendientes
+    const overdue = totalOverdueCount;
+    const pending = periodInstallments.filter(i => {
+      const eff = getInstallmentEffectiveStatus(i);
+      return eff === 'pending' || eff === 'pactada';
+    }).length;
     const totalAmount = periodInstallments.reduce((acc, curr) => acc + curr.amount, 0);
 
     return { total, paid, overdue, pending, totalAmount };
@@ -206,7 +231,12 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
             <span className="summary-val">{metrics.total}</span>
             <span className="summary-lbl">Total Cuotas</span>
           </div>
-          <div className="summary-stat-box">
+          <div 
+            className="summary-stat-box" 
+            onClick={() => setFilterStatus('overdue')} 
+            style={{ cursor: 'pointer' }}
+            title="Ver todas las cuotas vencidas en mora"
+          >
             <span className="summary-val red">{metrics.overdue}</span>
             <span className="summary-lbl">Vencidas</span>
           </div>
@@ -225,6 +255,27 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
           <span className="font-semibold text-lg">{formatCurrency(metrics.totalAmount)}</span>
         </div>
       </div>
+
+      {/* Banner de Advertencia de Cuotas Vencidas (especial para vista 'Hoy') */}
+      {viewMode === 'hoy' && totalOverdueCount > 0 && filterStatus !== 'overdue' && (
+        <div className="overdue-warning-card animate-slide-up">
+          <div className="overdue-warning-left">
+            <div className="overdue-warning-badge">⚠️ Cobros Vencidos</div>
+            <h4 className="overdue-warning-title">
+              Tienes {totalOverdueCount} {totalOverdueCount === 1 ? 'cobro vencido' : 'cobros vencidos'} en mora ({formatCurrency(totalOverdueAmount)})
+            </h4>
+            <p className="overdue-warning-text">
+              Hay clientes con cuotas atrasadas pendientes de pago o renovación inmediata.
+            </p>
+          </div>
+          <button 
+            className="overdue-warning-btn"
+            onClick={() => setFilterStatus('overdue')}
+          >
+            Ver y Cobrar Ahora →
+          </button>
+        </div>
+      )}
 
       {/* 2. Selector de Vistas del Calendario */}
       <div className="calendar-views-wrapper card shadow-sm">
@@ -266,10 +317,10 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
             ⏳ Pendientes
           </button>
           <button 
-            className={`filter-btn ${filterStatus === 'overdue' ? 'active' : ''}`}
+            className={`filter-btn ${filterStatus === 'overdue' ? 'active overdue' : ''}`}
             onClick={() => setFilterStatus('overdue')}
           >
-            ⚠️ Vencidas
+            ⚠️ Vencidas ({metrics.overdue})
           </button>
           <button 
             className={`filter-btn ${filterStatus === 'paid' ? 'active' : ''}`}
@@ -281,7 +332,7 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
       </div>
 
       {/* 3. Grilla del Calendario Mensual */}
-      {viewMode === 'mes' && (
+      {viewMode === 'mes' && filterStatus !== 'overdue' && (
         <div className="monthly-grid-card card shadow-sm animate-scale-in">
           <div className="monthly-grid-header">
             <button className="nav-btn" onClick={handlePrevMonth}><ChevronLeft size={18} /></button>
@@ -325,16 +376,23 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
       {/* 4. Lista de Cobros del Período / Día Seleccionado */}
       <div className="day-installments-section">
         <h4 className="section-title">
-          {viewMode === 'mes' ? `Cobros del ${selectedDateFormatted}` : 
-           viewMode === 'hoy' ? `Cobros de Hoy (${selectedDateFormatted})` : 
-           `Cobros Próximos 7 días (${metrics.total} cuotas)`}
+          {filterStatus === 'overdue' ? (
+            <div className="overdue-section-title-wrap">
+              <span>⚠️ Cuotas Vencidas en Mora ({filteredInstallmentsList.length})</span>
+              <span className="overdue-total-pill">Total en mora: {formatCurrency(totalOverdueAmount)}</span>
+            </div>
+          ) : (
+            viewMode === 'mes' ? `Cobros del ${selectedDateFormatted}` : 
+            viewMode === 'hoy' ? `Cobros de Hoy (${selectedDateFormatted})` : 
+            `Cobros Próximos 7 días (${metrics.total} cuotas)`
+          )}
         </h4>
 
         {filteredInstallmentsList.length === 0 ? (
           <div className="empty-state-card shadow-sm animate-scale-in">
             <Sparkles className="empty-icon success" size={32} />
-            <h4>¡Día libre!</h4>
-            <p>No tienes cobros programados para este período.</p>
+            <h4>{filterStatus === 'overdue' ? '¡Sin cuotas en mora!' : '¡Día libre!'}</h4>
+            <p>{filterStatus === 'overdue' ? 'No tienes cobros vencidos actualmente. Todos tus créditos están al día.' : 'No tienes cobros programados para este período.'}</p>
           </div>
         ) : (
           <div className="installments-list-wrap">
@@ -563,6 +621,101 @@ Por favor, realiza el pago o ponte en contacto para registrar tu abono. ¡Gracia
           background-color: var(--primary);
           color: white;
           border-color: var(--primary);
+        }
+
+        .filter-btn.active.overdue {
+          background-color: var(--danger);
+          color: white;
+          border-color: var(--danger);
+        }
+
+        .overdue-warning-card {
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(220, 38, 38, 0.05));
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .overdue-warning-left {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .overdue-warning-badge {
+          display: inline-flex;
+          align-items: center;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--danger);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .overdue-warning-title {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--text-primary);
+          margin: 0;
+        }
+
+        .overdue-warning-text {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin: 0;
+        }
+
+        .overdue-warning-btn {
+          padding: 9px 15px;
+          background-color: var(--danger);
+          color: white;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+          transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+
+        .overdue-warning-btn:hover {
+          background-color: #dc2626;
+          transform: translateY(-1px);
+        }
+
+        .overdue-section-title-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .overdue-total-pill {
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--danger);
+          background: rgba(239, 68, 68, 0.1);
+          padding: 3px 10px;
+          border-radius: 20px;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        @media (max-width: 600px) {
+          .overdue-warning-card {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .overdue-warning-btn {
+            width: 100%;
+            text-align: center;
+          }
         }
 
         .monthly-grid-card {

@@ -12,7 +12,10 @@ interface LoansProps {
   onDeleteLoan: (id: string) => void;
   onViewReceipt: (loan: Loan) => void;
   onOpenPaymentModal: (installment: Installment) => void;
+  initialStatusFilter?: 'all' | 'active' | 'overdue' | 'completed';
 }
+
+type LoanStatusFilter = 'all' | 'active' | 'overdue' | 'completed';
 
 export const Loans: React.FC<LoansProps> = ({
   loans,
@@ -20,35 +23,58 @@ export const Loans: React.FC<LoansProps> = ({
   openNewLoanModal,
   onDeleteLoan,
   onViewReceipt,
-  onOpenPaymentModal
+  onOpenPaymentModal,
+  initialStatusFilter = 'all'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<LoanStatusFilter>(initialStatusFilter);
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (initialStatusFilter) {
+      setStatusFilter(initialStatusFilter);
+    }
+  }, [initialStatusFilter]);
 
   const toggleExpandLoan = (loanId: string) => {
     setExpandedLoanId(prev => prev === loanId ? null : loanId);
   };
 
-  // Filtrar préstamos
-  const filteredLoans = loans.filter(loan => 
-    loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    loan.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const totalLoansCount = loans.length;
-  const activeLoansCount = loans.filter(l => l.status === 'active').length;
+  // Helper para verificar mora real según especificación
+  const checkIsLoanOverdue = (loan: Loan) => {
+    return loan.status === 'overdue' || (loan.status === 'active' && new Date(loan.endDate + 'T23:59:59').getTime() < Date.now());
+  };
+
+  // Conteo de préstamos por estado
+  const totalLoansCount = loans.length;
+  const overdueLoansCount = loans.filter(l => checkIsLoanOverdue(l)).length;
+  const activeLoansCount = loans.filter(l => l.status === 'active' && !checkIsLoanOverdue(l)).length;
   const completedLoansCount = loans.filter(l => l.status === 'completed').length;
+
+  // Filtrar préstamos por búsqueda y estado
+  const filteredLoans = loans.filter(loan => {
+    const matchesSearch = loan.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loan.id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    const isOverdue = checkIsLoanOverdue(loan);
+    if (statusFilter === 'active') return loan.status === 'active' && !isOverdue;
+    if (statusFilter === 'overdue') return isOverdue;
+    if (statusFilter === 'completed') return loan.status === 'completed';
+    return true;
+  });
 
   // Obtener cuotas pagadas vs totales de un préstamo
   const getLoanInstallmentsProgress = (loanId: string) => {
     const loanInstallments = installments.filter(i => i.loanId === loanId);
     const total = loanInstallments.length;
-    const paid = loanInstallments.filter(i => i.status === 'paid').length;
+    const paid = loanInstallments.filter(i => i.status === 'paid' || i.amount <= 0).length;
     const percentage = total > 0 ? (paid / total) * 100 : 0;
     return { paid, total, percentage };
   };
 
   // Calcular tiempo restante para vencimiento de forma amigable
-  const getVencimientoText = (endDateStr: string, status: string) => {
+  const getVencimientoText = (endDateStr: string, status: string, isOverdue: boolean) => {
     if (status === 'completed') return 'Completado';
     
     const today = new Date();
@@ -58,8 +84,9 @@ export const Loans: React.FC<LoansProps> = ({
     const diffTime = end.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) {
-      return `Vencido hace ${Math.abs(diffDays)} ${Math.abs(diffDays) === 1 ? 'día' : 'días'}`;
+    if (diffDays < 0 || isOverdue) {
+      const daysCount = Math.abs(diffDays);
+      return `Vencido hace ${daysCount} ${daysCount === 1 ? 'día' : 'días'}`;
     } else if (diffDays === 0) {
       return 'Vence hoy';
     } else if (diffDays === 1) {
@@ -80,7 +107,7 @@ export const Loans: React.FC<LoansProps> = ({
 
   return (
     <div className="loans-container animate-fade-in">
-      {/* Tarjeta de Resumen de Préstamos (sin límites artificiales) */}
+      {/* Tarjeta de Resumen de Préstamos */}
       <div className="cupo-card shadow-sm">
         <div className="cupo-header">
           <div className="cupo-title-wrap">
@@ -91,9 +118,11 @@ export const Loans: React.FC<LoansProps> = ({
         </div>
         <div className="cupo-footer" style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
           <span>Activos: <strong style={{ color: 'var(--success)' }}>{activeLoansCount}</strong></span>
+          {overdueLoansCount > 0 && <span>En Mora: <strong style={{ color: 'var(--danger)' }}>{overdueLoansCount}</strong></span>}
           {completedLoansCount > 0 && <span>Completados: <strong style={{ color: 'var(--primary)' }}>{completedLoansCount}</strong></span>}
         </div>
       </div>
+
       {/* Buscador y Botón de Añadir */}
       <div className="search-bar-wrap">
         <div className="search-input-container">
@@ -111,17 +140,54 @@ export const Loans: React.FC<LoansProps> = ({
         </button>
       </div>
 
+      {/* Filtros Rápidos por Estado */}
+      <div className="loan-status-filter-pills">
+        <button 
+          className={`status-pill ${statusFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('all')}
+        >
+          📋 Todos ({totalLoansCount})
+        </button>
+        <button 
+          className={`status-pill ${statusFilter === 'active' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('active')}
+        >
+          ⚡ Activos ({activeLoansCount})
+        </button>
+        <button 
+          className={`status-pill ${statusFilter === 'overdue' ? 'active overdue' : ''}`}
+          onClick={() => setStatusFilter('overdue')}
+        >
+          ⚠️ En Mora ({overdueLoansCount})
+        </button>
+        <button 
+          className={`status-pill ${statusFilter === 'completed' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('completed')}
+        >
+          ✓ Pagados ({completedLoansCount})
+        </button>
+      </div>
+
       {/* Lista de Préstamos */}
       <div className="loans-list">
         {filteredLoans.length === 0 ? (
           <div className="empty-state">
-            <p>No se encontraron préstamos registrados.</p>
+            <p>{statusFilter === 'overdue' ? '¡Excelente! No tienes préstamos en mora actualmente.' : 'No se encontraron préstamos registrados.'}</p>
           </div>
         ) : (
           filteredLoans.map((loan) => {
             const { paid, total, percentage } = getLoanInstallmentsProgress(loan.id);
-            const vencimientoText = getVencimientoText(loan.endDate, loan.status);
-            const isLoanOverdue = loan.status === 'active' && new Date(loan.endDate + 'T23:59:59').getTime() < Date.now();
+            const isLoanOverdue = loan.status === 'overdue' || (loan.status === 'active' && new Date(loan.endDate + 'T23:59:59').getTime() < Date.now());
+            const vencimientoText = getVencimientoText(loan.endDate, loan.status, isLoanOverdue);
+
+            // Buscar la cuota pendiente más urgente para cobro/abono directo
+            const loanInstallments = installments.filter(i => i.loanId === loan.id);
+            const urgentInstallment = loanInstallments
+              .filter(i => {
+                const eff = getInstallmentEffectiveStatus(i);
+                return eff !== 'paid' && i.amount > 0;
+              })
+              .sort((a, b) => a.number - b.number)[0];
             
             return (
               <div key={loan.id} className="loan-card shadow-sm">
@@ -142,8 +208,8 @@ export const Loans: React.FC<LoansProps> = ({
                     </span>
                   </div>
                   <Badge 
-                    status={isLoanOverdue ? 'overdue' : loan.status} 
-                    text={isLoanOverdue ? 'Mora' : loan.status === 'active' ? 'Activo' : 'Pagado'} 
+                    status={isLoanOverdue ? 'overdue' : (loan.status === 'completed' ? 'paid' : 'active')} 
+                    text={isLoanOverdue ? 'Mora' : (loan.status === 'completed' ? 'Pagado' : 'Activo')} 
                   />
                 </div>
 
@@ -163,7 +229,7 @@ export const Loans: React.FC<LoansProps> = ({
                     <span>Cuotas: {paid}/{total}</span>
                     <span>Pagado: {percentage.toFixed(1)}%</span>
                   </div>
-                  <ProgressBar progress={percentage} color="var(--primary)" />
+                  <ProgressBar progress={percentage} color={isLoanOverdue ? 'var(--danger)' : 'var(--primary)'} />
                 </div>
 
                 <div className="loan-card-dates">
@@ -176,9 +242,19 @@ export const Loans: React.FC<LoansProps> = ({
                 </div>
 
                 <div className="loan-card-actions">
+                  {urgentInstallment && (
+                    <button 
+                      className={`loan-action-btn quick-pay ${isLoanOverdue ? 'overdue' : ''}`}
+                      onClick={() => onOpenPaymentModal(urgentInstallment)}
+                      title={isLoanOverdue ? `Cobrar cuota #${urgentInstallment.number} en mora` : `Abonar a la cuota #${urgentInstallment.number}`}
+                    >
+                      <DollarSign size={14} />
+                      <span>{isLoanOverdue ? `Cobrar C#${urgentInstallment.number}` : `Abonar C#${urgentInstallment.number}`}</span>
+                    </button>
+                  )}
                   <button className="loan-action-btn cuotas" onClick={() => toggleExpandLoan(loan.id)}>
                     {expandedLoanId === loan.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    {expandedLoanId === loan.id ? 'Ocultar Cuotas' : 'Ver Cuotas / Abonar'}
+                    {expandedLoanId === loan.id ? 'Ocultar Cuotas' : 'Ver Cuotas'}
                   </button>
                   <button className="loan-action-btn pdf" onClick={() => onViewReceipt(loan)}>
                     <FileText size={14} />
@@ -186,7 +262,6 @@ export const Loans: React.FC<LoansProps> = ({
                   </button>
                   <button className="loan-action-btn delete" onClick={() => handleDeleteClick(loan.id, loan.clientName)}>
                     <Trash2 size={14} />
-                    Eliminar
                   </button>
                 </div>
 
@@ -441,6 +516,66 @@ export const Loans: React.FC<LoansProps> = ({
           background-color: rgba(14, 165, 233, 0.08);
           color: var(--primary);
           flex: 1.5;
+        }
+
+        .loan-status-filter-pills {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .status-pill {
+          padding: 7px 14px;
+          border-radius: 20px;
+          background-color: var(--bg-card);
+          border: 1px solid var(--border-color);
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s;
+        }
+
+        .status-pill:hover {
+          border-color: var(--primary);
+          color: var(--primary);
+        }
+
+        .status-pill.active {
+          background-color: var(--primary);
+          color: white;
+          border-color: var(--primary);
+        }
+
+        .status-pill.active.overdue {
+          background-color: var(--danger);
+          color: white;
+          border-color: var(--danger);
+        }
+
+        .loan-action-btn.quick-pay {
+          background-color: var(--success);
+          color: white;
+          border: none;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+          flex: 1.5;
+        }
+
+        .loan-action-btn.quick-pay:hover {
+          background-color: #059669;
+        }
+
+        .loan-action-btn.quick-pay.overdue {
+          background-color: var(--danger);
+          color: white;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .loan-action-btn.quick-pay.overdue:hover {
+          background-color: #dc2626;
         }
 
         .loan-action-btn.pdf {

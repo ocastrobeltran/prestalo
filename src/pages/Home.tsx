@@ -12,6 +12,8 @@ interface HomeProps {
   openNewClientModal: () => void;
   openNewLoanModal: () => void;
   onUpdateCapital: (newCapital: number) => void;
+  onNavigateToOverdueCalendar?: () => void;
+  onNavigateToOverdueLoans?: () => void;
 }
 
 export const Home: React.FC<HomeProps> = ({
@@ -22,10 +24,28 @@ export const Home: React.FC<HomeProps> = ({
   setActiveTab,
   openNewClientModal,
   openNewLoanModal,
-  onUpdateCapital
+  onUpdateCapital,
+  onNavigateToOverdueCalendar,
+  onNavigateToOverdueLoans
 }) => {
   const [isEditingCapital, setIsEditingCapital] = useState(false);
   const [tempCapital, setTempCapital] = useState<number | ''>('');
+
+  const handleGoToOverdueCalendar = () => {
+    if (onNavigateToOverdueCalendar) {
+      onNavigateToOverdueCalendar();
+    } else {
+      setActiveTab('calendario');
+    }
+  };
+
+  const handleGoToOverdueLoans = () => {
+    if (onNavigateToOverdueLoans) {
+      onNavigateToOverdueLoans();
+    } else {
+      setActiveTab('prestamos');
+    }
+  };
 
   // Calcular métricas
   const activeClientsCount = clients.filter(c => c.status === 'active').length;
@@ -165,13 +185,22 @@ export const Home: React.FC<HomeProps> = ({
           </div>
 
           {/* 6. Vencido */}
-          <div className="summary-card">
+          <div 
+            className="summary-card clickable"
+            onClick={handleGoToOverdueCalendar}
+            role="button"
+            tabIndex={0}
+            title="Ver cobros vencidos en mora"
+          >
             <div className="summary-icon-box icon-red">
               <Siren size={22} />
             </div>
             <div className="summary-card-content">
               <div className="summary-val red">{formatCurrency(summary.totalOverdue)}</div>
-              <div className="summary-title">Vencido</div>
+              <div className="summary-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>Vencido</span>
+                <span className="summary-action-arrow">Ver cobros →</span>
+              </div>
               <div className="summary-subtext">Capital {formatCurrency(summary.overdueCapital)} · Int. {formatCurrency(summary.overdueInterest)}</div>
             </div>
           </div>
@@ -226,6 +255,40 @@ export const Home: React.FC<HomeProps> = ({
           </div>
         )}
       </div>
+
+      {/* Banner Prioritario de Cobros Vencidos en Mora */}
+      {summary.overdueInstallmentsCount > 0 && (
+        <div className="alert-banner overdue animate-slide-up" onClick={handleGoToOverdueCalendar} role="button" tabIndex={0}>
+          <div className="alert-content">
+            <div className="alert-icon-box-overdue">
+              <Siren size={20} />
+            </div>
+            <div className="alert-text-group">
+              <span className="alert-heading">
+                ⚠️ Tienes <strong>{summary.overdueInstallmentsCount} {summary.overdueInstallmentsCount === 1 ? 'cobro vencido' : 'cobros vencidos'}</strong> en mora ({formatCurrency(summary.totalOverdue)})
+              </span>
+              <span className="alert-desc">Hay créditos con cuotas atrasadas pendientes de cobro inmediato</span>
+            </div>
+          </div>
+          <div className="alert-buttons-group">
+            <button 
+              type="button"
+              className="alert-sub-btn" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                handleGoToOverdueLoans(); 
+              }}
+              title="Ver préstamos en mora"
+            >
+              Ver créditos
+            </button>
+            <div className="alert-badge-btn">
+              <span>Cobrar</span>
+              <ChevronRight size={16} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Banner Alertas Próximos Cobros */}
       {upcomingPaymentsCount > 0 && (
@@ -560,6 +623,21 @@ export const Home: React.FC<HomeProps> = ({
           box-shadow: 0 4px 12px var(--primary-glow);
         }
 
+        .summary-card.clickable {
+          cursor: pointer;
+        }
+
+        .summary-card.clickable:hover {
+          border-color: rgba(var(--danger-rgb), 0.4);
+          background-color: rgba(var(--danger-rgb), 0.04);
+        }
+
+        .summary-action-arrow {
+          font-size: 11px;
+          color: var(--danger);
+          font-weight: 700;
+        }
+
         .alert-banner {
           background: rgba(var(--warning-rgb), 0.1);
           border: 1px solid rgba(var(--warning-rgb), 0.3);
@@ -571,6 +649,85 @@ export const Home: React.FC<HomeProps> = ({
           align-items: center;
           cursor: pointer;
           transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .alert-banner.overdue {
+          background: rgba(var(--danger-rgb), 0.1);
+          border: 1px solid rgba(var(--danger-rgb), 0.35);
+          color: var(--danger);
+        }
+
+        .alert-banner.overdue:hover {
+          background: rgba(var(--danger-rgb), 0.14);
+        }
+
+        .alert-icon-box-overdue {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background-color: rgba(var(--danger-rgb), 0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--danger);
+          flex-shrink: 0;
+        }
+
+        .alert-text-group {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .alert-heading {
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .alert-heading strong {
+          color: var(--danger);
+        }
+
+        .alert-desc {
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+
+        .alert-buttons-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .alert-sub-btn {
+          padding: 6px 10px;
+          border-radius: 8px;
+          background-color: rgba(var(--danger-rgb), 0.12);
+          color: var(--danger);
+          border: 1px solid rgba(var(--danger-rgb), 0.3);
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background-color 0.2s;
+        }
+
+        .alert-sub-btn:hover {
+          background-color: rgba(var(--danger-rgb), 0.22);
+        }
+
+        .alert-badge-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          background-color: var(--danger);
+          color: white;
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
         }
 
         .alert-banner:active {

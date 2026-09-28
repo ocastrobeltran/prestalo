@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserSubscription } from '../types';
-import { getPaidBreakdownForInstallment, addMonths } from './loanCalculator';
+import { getPaidBreakdownForInstallment, addMonths, generateInstallments } from './loanCalculator';
 
 // Claves locales sincronizadas con storageService
 let currentUserId: string | null = null;
@@ -157,7 +157,7 @@ const toBaseDbInstallment = (i: Installment, userId?: string) => ({
   status: i.status
 });
 
-const safeUpsertInstallments = async (installments: Installment[], userId?: string): Promise<void> => {
+export const safeUpsertInstallments = async (installments: Installment[], userId?: string): Promise<void> => {
   if (installments.length === 0) return;
   const fullRows = installments.map(i => toDbInstallment(i, userId));
   const { error } = await supabase.from('installments').upsert(fullRows);
@@ -400,7 +400,7 @@ export const supabaseSyncService = {
       loans.forEach(l => loansMap.set(l.id, l));
 
       // Asegurar que cuotas descargadas de esquemas base tengan su desglose coherente
-      const installments = rawInstallments.map(inst => {
+      const installments: Installment[] = rawInstallments.map(inst => {
         const loan = loansMap.get(inst.loanId);
         const breakdown = getPaidBreakdownForInstallment(inst, loan);
         const origTotal = (loan && loan.installmentsCount > 0)
@@ -418,6 +418,45 @@ export const supabaseSyncService = {
           pactDeadline: inst.pactDeadline || (isPartialAbono ? addMonths(inst.dueDate, 1) : undefined)
         };
       });
+
+      // Mecanismo de auto-sanación (self-healing) de cuotas huérfanas o faltantes
+      const existingLoanIds = new Set(installments.map(i => i.loanId));
+      const todayStr = new Date().toISOString().split('T')[0];
+      const healedInstallments: Installment[] = [];
+
+      for (const loan of loans) {
+        const isNotCompleted = loan.status === 'active' || loan.status === 'overdue' || (loan.status as string) !== 'completed';
+        if (isNotCompleted && !existingLoanIds.has(loan.id) && loan.installmentsCount > 0) {
+          console.warn(`[Self-Healing SyncDown] Préstamo ${loan.id} (${loan.clientName}) no tiene cuotas registradas. Regenerando ${loan.installmentsCount} cuotas...`);
+          const generated = generateInstallments({
+            loanId: loan.id,
+            clientId: loan.clientId,
+            clientName: loan.clientName,
+            capital: loan.capital,
+            interestRate: loan.interestRate,
+            paymentFrequency: loan.paymentFrequency,
+            installmentsCount: loan.installmentsCount,
+            startDate: loan.startDate
+          }).map(inst => {
+            const isDueOverdue = inst.dueDate < todayStr;
+            return {
+              ...inst,
+              userId: userId || loan.userId || currentUserId || undefined,
+              status: (isDueOverdue || loan.status === 'overdue' ? 'overdue' : 'pending') as 'pending' | 'overdue'
+            };
+          });
+
+          installments.push(...generated);
+          healedInstallments.push(...generated);
+          existingLoanIds.add(loan.id);
+        }
+      }
+
+      if (healedInstallments.length > 0) {
+        safeUpsertInstallments(healedInstallments, userId || undefined).catch(err => {
+          console.error('[Self-Healing SyncDown] Error al persistir cuotas regeneradas en Supabase:', err);
+        });
+      }
 
       const rawBox = boxData ? fromDbCapitalBox(boxData) : getLocal<CapitalBox>('capital', defaultBox);
       const capitalBox = computeCapitalBox(rawBox.initialCapital || 0, loans, installments, transactions);
@@ -596,5 +635,7 @@ export const supabaseSyncService = {
       console.error('Error syncUpCapitalBox:', err);
       this.setStatus('error');
     }
-  }
+  },
+
+  safeUpsertInstallments
 };

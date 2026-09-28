@@ -172,6 +172,10 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
     setSuccessMsg(null);
 
     // 1. Recuperación de contraseña
+    const redirectUrl = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.protocol.includes('capacitor')
+      ? window.location.origin
+      : 'https://credipresta.com';
+
     if (authMode === 'forgot_password') {
       if (!email.trim()) {
         setErrorMsg('Por favor ingresa tu correo electrónico.');
@@ -180,7 +184,7 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
       setLoading(true);
       try {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: window.location.origin
+          redirectTo: redirectUrl
         });
         if (error) throw error;
         setSuccessMsg('¡Enlace enviado! Revisa tu bandeja de entrada o spam para restablecer tu contraseña.');
@@ -247,6 +251,7 @@ export const Login: React.FC<LoginProps> = ({ onOpenTerms, onOpenPrivacy, onBack
           email: email.trim(),
           password,
           options: {
+            emailRedirectTo: redirectUrl,
             data: {
               full_name: fullName.trim(),
               business_name: businessName.trim(),

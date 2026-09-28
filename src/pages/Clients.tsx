@@ -101,7 +101,7 @@ export const Clients: React.FC<ClientsProps> = ({
         ) : (
           filteredClients.map((client) => {
             const clientLoans = getClientLoans(client.id);
-            const activeLoans = clientLoans.filter(l => l.status === 'active');
+            const activeLoans = clientLoans.filter(l => l.status === 'active' || l.status === 'overdue' || (l.status !== 'completed' && new Date(l.endDate + 'T23:59:59').getTime() < Date.now()));
             const totalLent = clientLoans.reduce((acc, curr) => acc + curr.capital, 0);
             const isExpanded = expandedClientId === client.id;
 
@@ -126,7 +126,7 @@ export const Clients: React.FC<ClientsProps> = ({
                     </a>
                     
                     <span className="loans-badge">
-                      {activeLoans.length} préstamo{activeLoans.length !== 1 ? 's' : ''}
+                      {activeLoans.length} préstamo{activeLoans.length !== 1 ? 's' : ''} activo{activeLoans.length !== 1 ? 's' : ''}
                     </span>
                   </div>
 
@@ -169,16 +169,19 @@ export const Clients: React.FC<ClientsProps> = ({
                         <div className="client-loans-list">
                           {clientLoans.map((loan) => {
                             const loanInsts = installments.filter(i => i.loanId === loan.id);
-                            const pendingInsts = loanInsts.filter(i => i.status !== 'paid');
+                            const isLoanOverdue = loan.status === 'overdue' || (loan.status === 'active' && new Date(loan.endDate + 'T23:59:59').getTime() < Date.now());
+                            const pendingInsts = loanInsts.filter(i => {
+                              const eff = getInstallmentEffectiveStatus(i);
+                              return eff !== 'paid' && i.amount > 0;
+                            });
 
                             return (
                               <div key={loan.id} className="client-loan-item">
                                 <div className="loan-item-header">
-                                  <span className={`loan-status-dot ${loan.status}`}></span>
+                                  <span className={`loan-status-dot ${isLoanOverdue ? 'overdue' : loan.status}`}></span>
                                   <span className="loan-item-id font-semibold">ID: {loan.id}</span>
-                                  <span className={`loan-status-text ${loan.status}`}>
-                                    {loan.status === 'active' ? 'Activo' : 
-                                     loan.status === 'completed' ? 'Pagado' : 'Mora'}
+                                  <span className={`loan-status-text ${isLoanOverdue ? 'overdue' : loan.status}`}>
+                                    {isLoanOverdue ? 'Mora' : (loan.status === 'completed' ? 'Pagado' : 'Activo')}
                                   </span>
                                 </div>
                                 <div className="loan-item-details">
