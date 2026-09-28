@@ -1,5 +1,5 @@
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction, UserProfile } from '../types';
-import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel } from './loanCalculator';
+import { generateInstallments, addMonths, getNextPaymentDate, getRenewalStepLabel, calculateFinancialSummary } from './loanCalculator';
 import { supabaseSyncService, computeCapitalBox, setSyncUserId, safeUpsertInstallments } from './supabaseSyncService';
 
 let currentUserId: string | null = null;
@@ -544,6 +544,53 @@ export const storageService = {
     
     supabaseSyncService.syncUpCapitalBox(capitalBox, tx);
     return capitalBox;
+  },
+
+  withdrawProfit(amount: number, note?: string): { transaction: CapitalTransaction; capitalBox: CapitalBox; availableProfit: number } {
+    if (!amount || isNaN(amount) || amount <= 0) {
+      throw new Error('El monto a retirar debe ser mayor a 0.');
+    }
+
+    const loans = this.getLoans();
+    const installments = this.getInstallments();
+    const transactions = this.getTransactions();
+
+    const summary = calculateFinancialSummary(loans, installments, transactions);
+    const availableProfit = summary.availableProfit;
+
+    const currentBox = this.getCapitalBox();
+    const currentCapital = currentBox.currentCapital;
+
+    if (amount > availableProfit) {
+      throw new Error(`No puedes retirar más de la ganancia neta disponible ($${availableProfit.toLocaleString()}).`);
+    }
+
+    if (amount > currentCapital) {
+      throw new Error(`No hay suficiente dinero disponible en caja ($${currentCapital.toLocaleString()}) para realizar este retiro.`);
+    }
+
+    const description = note && note.trim()
+      ? `Retiro de Ganancias: ${note.trim()}`
+      : 'Retiro de Ganancias para uso personal';
+
+    const tx = this.addTransaction({
+      amount: -Math.abs(amount),
+      type: 'profit_withdrawal',
+      description
+    });
+
+    const capitalBox = this.reconcileCapitalBox();
+
+    supabaseSyncService.syncUpCapitalBox(capitalBox, tx);
+    supabaseSyncService.syncUpTransaction(tx);
+
+    const remainingProfit = Math.max(0, availableProfit - amount);
+
+    return {
+      transaction: tx,
+      capitalBox,
+      availableProfit: remainingProfit
+    };
   },
 
   // TRANSACTIONS

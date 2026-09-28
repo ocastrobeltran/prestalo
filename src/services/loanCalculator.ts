@@ -1,4 +1,4 @@
-import type { PaymentFrequency, Installment, Loan } from '../types';
+import type { PaymentFrequency, Installment, Loan, CapitalTransaction } from '../types';
 
 /**
  * Interface para el resumen financiero consolidado
@@ -17,6 +17,8 @@ export interface FinancialSummary {
   overdueInterest: number;        // Interés en mora
   totalOverdue: number;           // Total en mora
   overdueInstallmentsCount: number; // Cantidad de cuotas vencidas
+  withdrawnProfit: number;        // Ganancias ya retiradas para uso personal / ajeno
+  availableProfit: number;        // Ganancias netas disponibles para retirar (netProfit - withdrawnProfit)
 }
 
 /**
@@ -70,7 +72,11 @@ export function getPaidBreakdownForInstallment(inst: Installment, loan?: Loan): 
 /**
  * Calcula el resumen financiero de forma precisa respetando abonos y pagos cobrados
  */
-export function calculateFinancialSummary(loans: Loan[], installments: Installment[]): FinancialSummary {
+export function calculateFinancialSummary(
+  loans: Loan[],
+  installments: Installment[],
+  transactions?: CapitalTransaction[]
+): FinancialSummary {
   const loansMap = new Map<string, Loan>();
   loans.forEach(l => loansMap.set(l.id, l));
 
@@ -114,6 +120,16 @@ export function calculateFinancialSummary(loans: Loan[], installments: Installme
   const totalPending = pendingCapital + pendingInterest;
   const totalOverdue = overdueCapital + overdueInterest;
 
+  // Ganancias retiradas para uso personal o ajeno
+  const withdrawnProfit = (transactions || []).reduce((acc, curr) => {
+    if (curr.type === 'profit_withdrawal' || (curr.type === 'expense' && curr.description?.startsWith('[Retiro Ganancias]'))) {
+      return acc + Math.abs(curr.amount);
+    }
+    return acc;
+  }, 0);
+
+  const availableProfit = Math.max(0, netProfit - withdrawnProfit);
+
   return {
     totalCapitalLent,
     enCalle,
@@ -127,7 +143,9 @@ export function calculateFinancialSummary(loans: Loan[], installments: Installme
     overdueCapital,
     overdueInterest,
     totalOverdue,
-    overdueInstallmentsCount
+    overdueInstallmentsCount,
+    withdrawnProfit,
+    availableProfit
   };
 }
 

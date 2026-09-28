@@ -13,9 +13,11 @@ import { ClientModal } from './components/clients/ClientModal';
 import { LoanModal } from './components/loans/LoanModal';
 import { LoanReceiptModal } from './components/loans/LoanReceiptModal';
 import { PaymentModal } from './components/loans/PaymentModal';
+import { WithdrawProfitModal } from './components/capital/WithdrawProfitModal';
 import { PaywallModal } from './components/subscription/PaywallModal';
 import { DeleteAccountModal } from './components/auth/DeleteAccountModal';
 import { storageService } from './services/storageService';
+import { calculateFinancialSummary } from './services/loanCalculator';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
 import { Capacitor } from '@capacitor/core';
@@ -111,6 +113,7 @@ const MainApp: React.FC = () => {
   const [activeInstallmentForPayment, setActiveInstallmentForPayment] = useState<Installment | null>(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isWithdrawProfitModalOpen, setIsWithdrawProfitModalOpen] = useState(false);
 
   // Contexto de Suscripción
   const { canCreateClient, canCreateLoan, isPaywallOpen, closePaywall } = useSubscription();
@@ -268,6 +271,13 @@ const MainApp: React.FC = () => {
     refreshData();
   };
 
+  const handleConfirmWithdrawProfit = (amount: number, note?: string) => {
+    storageService.withdrawProfit(amount, note);
+    refreshData();
+  };
+
+  const financialSummary = calculateFinancialSummary(loans, installments, transactions);
+
   if (authLoading) {
     return (
       <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-app)' }}>
@@ -314,10 +324,12 @@ const MainApp: React.FC = () => {
             loans={loans}
             installments={installments}
             capitalBox={capitalBox}
+            transactions={transactions}
             setActiveTab={setActiveTab}
             openNewClientModal={openNewClientModal}
             openNewLoanModal={() => openNewLoanModal()}
             onUpdateCapital={handleUpdateCapital}
+            onOpenWithdrawProfit={() => setIsWithdrawProfitModalOpen(true)}
             onNavigateToOverdueCalendar={() => {
               setCalendarFilter('overdue');
               setActiveTab('calendario');
@@ -439,6 +451,16 @@ const MainApp: React.FC = () => {
         installment={activeInstallmentForPayment}
         onConfirmPayment={handleConfirmPayment}
         onConfirmRenewal={handleConfirmRenewal}
+      />
+
+      <WithdrawProfitModal
+        isOpen={isWithdrawProfitModalOpen}
+        onClose={() => setIsWithdrawProfitModalOpen(false)}
+        availableProfit={financialSummary.availableProfit}
+        totalProfit={financialSummary.netProfit}
+        withdrawnProfit={financialSummary.withdrawnProfit}
+        currentCapital={capitalBox.currentCapital}
+        onConfirmWithdraw={handleConfirmWithdrawProfit}
       />
 
       <PaywallModal

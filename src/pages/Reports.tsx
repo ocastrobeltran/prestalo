@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
 import { formatCurrency, calculateFinancialSummary, getPaidBreakdownForInstallment, isInstallmentOverdue } from '../services/loanCalculator';
-import { BarChart3, TrendingUp, Users, Printer } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Printer, Sparkles } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 
 const monthNames = [
@@ -119,9 +119,14 @@ export const Reports: React.FC<ReportsProps> = ({
     interesesRecuperadosPeriodo += paidInterest;
   });
 
-  // Totales generales para métricas de "Cierre"
-  const summaryOverall = calculateFinancialSummary(loans, installments);
+  // Totales generales para métricas de "Cierre" y Ganancias
+  const summaryOverall = calculateFinancialSummary(loans, installments, transactions);
   const enCalleOverall = summaryOverall.enCalle;
+
+  // Retiros de ganancia en el período filtrado
+  const withdrawnInPeriod = filteredTransactions
+    .filter(t => t.type === 'profit_withdrawal' || (t.type === 'expense' && t.description?.startsWith('[Retiro Ganancias]')))
+    .reduce((acc, curr) => acc + Math.abs(curr.amount), 0);
 
   // Tasa de recuperación del período
   const paidCount = filteredInstallments.filter(i => i.status === 'paid' || i.amount <= 0).length;
@@ -258,6 +263,81 @@ export const Reports: React.FC<ReportsProps> = ({
             <span className="val primary">{formatCurrency(capitalBox.currentCapital)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Desglose de Ganancias Generadas vs Retiradas vs Disponibles */}
+      <div className="card shadow-sm">
+        <div className="reports-section-header">
+          <div className="card-header-icon-title">
+            <Sparkles size={20} className="icon-green" />
+            <h3>Desglose de Ganancias</h3>
+          </div>
+          <span className="badge-profit-status">
+            {summaryOverall.availableProfit > 0 ? 'FONDOS DISPONIBLES' : 'TODO RETIRADO O PENDIENTE'}
+          </span>
+        </div>
+
+        <div className="profit-breakdown-grid">
+          {/* 1. Ganancias Generadas */}
+          <div className="profit-stat-card generated">
+            <div className="profit-stat-header">
+              <span className="profit-stat-lbl">Ganancias Generadas</span>
+              <span className="profit-stat-badge-sub">Histórico</span>
+            </div>
+            <span className="profit-stat-val success">{formatCurrency(summaryOverall.netProfit)}</span>
+            <span className="profit-stat-desc">
+              {period !== 'todos' ? `En el período: ${formatCurrency(interesesRecuperadosPeriodo)}` : 'Total cobrado de intereses'}
+            </span>
+          </div>
+
+          {/* 2. Ganancias Retiradas */}
+          <div className="profit-stat-card withdrawn">
+            <div className="profit-stat-header">
+              <span className="profit-stat-lbl">Ganancias Retiradas</span>
+              <span className="profit-stat-badge-sub text-warning">Personal</span>
+            </div>
+            <span className="profit-stat-val warning">-{formatCurrency(summaryOverall.withdrawnProfit)}</span>
+            <span className="profit-stat-desc">
+              {withdrawnInPeriod > 0 && period !== 'todos' 
+                ? `En el período: -${formatCurrency(withdrawnInPeriod)}` 
+                : 'Salidas de caja para uso ajeno'}
+            </span>
+          </div>
+
+          {/* 3. Ganancias Disponibles */}
+          <div className="profit-stat-card available">
+            <div className="profit-stat-header">
+              <span className="profit-stat-lbl">Ganancia Disponible</span>
+              <span className="profit-stat-badge-sub text-emerald">Retirable</span>
+            </div>
+            <span className="profit-stat-val emerald">{formatCurrency(summaryOverall.availableProfit)}</span>
+            <span className="profit-stat-desc">
+              Monto libre para retirar o reinvertir
+            </span>
+          </div>
+        </div>
+
+        {/* Proporción de Retiros vs Ganancia Disponible */}
+        {summaryOverall.netProfit > 0 && (
+          <div className="profit-progress-wrap">
+            <div className="profit-progress-labels">
+              <span>Retirado: {((summaryOverall.withdrawnProfit / summaryOverall.netProfit) * 100).toFixed(1)}% ({formatCurrency(summaryOverall.withdrawnProfit)})</span>
+              <span>Disponible: {((summaryOverall.availableProfit / summaryOverall.netProfit) * 100).toFixed(1)}% ({formatCurrency(summaryOverall.availableProfit)})</span>
+            </div>
+            <div className="profit-progress-bar">
+              <div 
+                className="profit-bar-withdrawn" 
+                style={{ width: `${Math.min(100, (summaryOverall.withdrawnProfit / summaryOverall.netProfit) * 100)}%` }} 
+                title={`Retirado: ${formatCurrency(summaryOverall.withdrawnProfit)}`}
+              />
+              <div 
+                className="profit-bar-available" 
+                style={{ width: `${Math.max(0, (summaryOverall.availableProfit / summaryOverall.netProfit) * 100)}%` }} 
+                title={`Disponible: ${formatCurrency(summaryOverall.availableProfit)}`}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Indicadores Clave */}
@@ -427,6 +507,127 @@ export const Reports: React.FC<ReportsProps> = ({
           padding: 3px 8px;
           border-radius: 6px;
           letter-spacing: 0.5px;
+        }
+
+        .badge-profit-status {
+          font-size: 9px;
+          font-weight: 800;
+          color: var(--success);
+          background-color: rgba(var(--success-rgb), 0.12);
+          padding: 3px 8px;
+          border-radius: 6px;
+          letter-spacing: 0.5px;
+        }
+
+        .profit-breakdown-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+
+        .profit-stat-card {
+          background-color: var(--bg-app);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .profit-stat-card.available {
+          border-color: rgba(var(--success-rgb), 0.35);
+          background: rgba(var(--success-rgb), 0.05);
+        }
+
+        .profit-stat-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .profit-stat-lbl {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-secondary);
+        }
+
+        .profit-stat-badge-sub {
+          font-size: 9px;
+          font-weight: 700;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+        }
+
+        .profit-stat-badge-sub.text-warning {
+          color: var(--warning);
+        }
+
+        .profit-stat-badge-sub.text-emerald {
+          color: var(--success);
+        }
+
+        .profit-stat-val {
+          font-family: var(--font-heading);
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.3px;
+        }
+
+        .profit-stat-val.success { color: var(--success); }
+        .profit-stat-val.warning { color: var(--warning); }
+        .profit-stat-val.emerald { color: var(--success); }
+
+        .profit-stat-desc {
+          font-size: 10px;
+          color: var(--text-tertiary);
+          line-height: 1.3;
+        }
+
+        .profit-progress-wrap {
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .profit-progress-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-secondary);
+        }
+
+        .profit-progress-bar {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          background-color: var(--bg-app);
+          overflow: hidden;
+          display: flex;
+          border: 1px solid var(--border-color);
+        }
+
+        .profit-bar-withdrawn {
+          background-color: var(--warning);
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+
+        .profit-bar-available {
+          background-color: var(--success);
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+
+        @media (max-width: 600px) {
+          .profit-breakdown-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
         }
 
         .metrics-box-grid {

@@ -65,11 +65,30 @@ export interface CapitalTransaction {
   id: string;
   userId?: string;
   amount: number;
-  type: 'income' | 'expense' | 'initial' | 'loan_disbursement' | 'installment_payment';
+  type: 'income' | 'expense' | 'initial' | 'loan_disbursement' | 'installment_payment' | 'profit_withdrawal';
   description: string;
   date: string;                // YYYY-MM-DD HH:mm:ss
   referenceId?: string;        // ID del préstamo o cliente relacionado
 }
+
+export interface FinancialSummary {
+  totalCapitalLent: number;       // Capital Prestado (volumen histórico)
+  enCalle: number;                // En Calle (Capital principal pendiente de devolución en préstamos activos)
+  totalPaidCapital: number;       // Capital recuperado cobrado
+  totalPaidInterest: number;      // Interés recuperado cobrado
+  totalRecovered: number;         // Total Recuperado (Capital + Interés cobrado)
+  netProfit: number;              // Ganancia Neta (Intereses cobrados)
+  pendingCapital: number;         // Capital por cobrar
+  pendingInterest: number;        // Próximos intereses por cobrar
+  totalPending: number;           // Pendiente total por cobrar
+  overdueCapital: number;         // Capital en mora
+  overdueInterest: number;        // Interés en mora
+  totalOverdue: number;           // Total en mora
+  overdueInstallmentsCount: number; // Cantidad de cuotas vencidas
+  withdrawnProfit: number;        // Ganancias ya retiradas para uso personal / ajeno
+  availableProfit: number;        // Ganancias netas disponibles para retirar (netProfit - withdrawnProfit)
+}
+
 
 export type SubscriptionTier = 'free' | 'pro';
 export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due' | 'expired';

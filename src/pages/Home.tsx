@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import type { Client, Loan, Installment, CapitalBox } from '../types';
+import type { Client, Loan, Installment, CapitalBox, CapitalTransaction } from '../types';
 import { formatCurrency, calculateFinancialSummary } from '../services/loanCalculator';
-import { TrendingUp, Users, DollarSign, Wallet, Calendar, FileText, ChevronRight, UserPlus, FilePlus, Banknote, Route, Heart, Sparkles, Hourglass, Siren } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Wallet, Calendar, FileText, ChevronRight, UserPlus, FilePlus, Banknote, Route, Heart, Sparkles, Hourglass, Siren, ArrowUpRight } from 'lucide-react';
 
 interface HomeProps {
   clients: Client[];
   loans: Loan[];
   installments: Installment[];
   capitalBox: CapitalBox;
+  transactions?: CapitalTransaction[];
   setActiveTab: (tab: string) => void;
   openNewClientModal: () => void;
   openNewLoanModal: () => void;
   onUpdateCapital: (newCapital: number) => void;
   onNavigateToOverdueCalendar?: () => void;
   onNavigateToOverdueLoans?: () => void;
+  onOpenWithdrawProfit?: () => void;
 }
 
 export const Home: React.FC<HomeProps> = ({
@@ -21,12 +23,14 @@ export const Home: React.FC<HomeProps> = ({
   loans,
   installments,
   capitalBox,
+  transactions = [],
   setActiveTab,
   openNewClientModal,
   openNewLoanModal,
   onUpdateCapital,
   onNavigateToOverdueCalendar,
-  onNavigateToOverdueLoans
+  onNavigateToOverdueLoans,
+  onOpenWithdrawProfit
 }) => {
   const [isEditingCapital, setIsEditingCapital] = useState(false);
   const [tempCapital, setTempCapital] = useState<number | ''>('');
@@ -59,7 +63,7 @@ export const Home: React.FC<HomeProps> = ({
     : 0;
 
   // Resumen Financiero Consolidado (6 métricas según requerimiento)
-  const summary = calculateFinancialSummary(loans, installments);
+  const summary = calculateFinancialSummary(loans, installments, transactions);
 
   // Próximos cobros en los siguientes 7 días
   const todayStr = new Date().toISOString().split('T')[0];
@@ -166,9 +170,28 @@ export const Home: React.FC<HomeProps> = ({
               <Sparkles size={22} />
             </div>
             <div className="summary-card-content">
-              <div className="summary-val green">{formatCurrency(summary.netProfit)}</div>
-              <div className="summary-title">Ganancia Neta</div>
-              <div className="summary-subtext">Int. {formatCurrency(summary.totalPaidInterest)}</div>
+              <div className="summary-val-with-action">
+                <div className="summary-val green">{formatCurrency(summary.availableProfit)}</div>
+                {onOpenWithdrawProfit && (
+                  <button 
+                    type="button" 
+                    className="btn-withdraw-profit" 
+                    onClick={onOpenWithdrawProfit}
+                    title="Retirar Ganancia Neta para uso personal"
+                    aria-label="Retirar Ganancia Neta"
+                  >
+                    <span>Retirar Ganancia</span>
+                    <ArrowUpRight size={13} />
+                  </button>
+                )}
+              </div>
+              <div className="summary-title">Ganancia Disponible</div>
+              <div className="summary-subtext">
+                Cobrado {formatCurrency(summary.netProfit)}
+                {summary.withdrawnProfit > 0 && (
+                  <span> · Retirado <span className="text-withdrawn">-{formatCurrency(summary.withdrawnProfit)}</span></span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -251,7 +274,19 @@ export const Home: React.FC<HomeProps> = ({
                 <span className="sub-lbl">Total en Calle:</span>
                 <span className="sub-val warning">{formatCurrency(capitalBox.totalLent)}</span>
               </div>
+              {summary.withdrawnProfit > 0 && (
+                <div className="sub-stat">
+                  <span className="sub-lbl">Ganancias Retiradas:</span>
+                  <span className="sub-val text-withdrawn">-{formatCurrency(summary.withdrawnProfit)}</span>
+                </div>
+              )}
             </div>
+            {summary.withdrawnProfit > 0 && (
+              <div className="capital-withdrawal-badge">
+                <span className="withdrawal-dot"></span>
+                <span>Se han retirado <strong>{formatCurrency(summary.withdrawnProfit)}</strong> de ganancias netas para uso personal.</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -476,6 +511,8 @@ export const Home: React.FC<HomeProps> = ({
           display: flex;
           flex-direction: column;
           gap: 2px;
+          flex: 1;
+          min-width: 0;
         }
 
         .summary-val {
@@ -484,6 +521,85 @@ export const Home: React.FC<HomeProps> = ({
           font-weight: 800;
           line-height: 1.25;
           letter-spacing: -0.3px;
+        }
+
+        .summary-val-with-action {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 6px 10px;
+          width: 100%;
+        }
+
+        .summary-val-with-action .summary-val {
+          min-width: 0;
+          word-break: break-word;
+        }
+
+        .btn-withdraw-profit {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(var(--success-rgb), 0.12);
+          color: var(--success);
+          border: 1px solid rgba(var(--success-rgb), 0.3);
+          padding: 6px 12px;
+          min-height: 30px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+          text-decoration: none;
+          flex-shrink: 0;
+        }
+
+        .btn-withdraw-profit:hover {
+          background: var(--success);
+          color: #ffffff;
+          border-color: var(--success);
+          box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.25);
+          transform: translateY(-1px);
+        }
+
+        .btn-withdraw-profit:active {
+          transform: translateY(0);
+        }
+
+        .btn-withdraw-profit:focus-visible {
+          outline: 2px solid var(--success);
+        }
+
+        .text-withdrawn {
+          color: var(--warning);
+          font-weight: 600;
+        }
+
+        .capital-withdrawal-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(var(--warning-rgb), 0.08);
+          border: 1px solid rgba(var(--warning-rgb), 0.2);
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 11px;
+          color: var(--text-secondary);
+          margin-top: 4px;
+        }
+
+        .capital-withdrawal-badge strong {
+          color: var(--text-primary);
+        }
+
+        .withdrawal-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: var(--warning);
+          flex-shrink: 0;
         }
 
         .summary-val.default { color: var(--text-primary); }
@@ -809,6 +925,25 @@ export const Home: React.FC<HomeProps> = ({
           border: 1px solid rgba(var(--accent-purple-rgb), 0.3);
           color: var(--accent-purple);
           box-shadow: var(--shadow-sm);
+        }
+
+        @media (max-width: 480px) {
+          .summary-card {
+            padding: 12px;
+            gap: 10px;
+          }
+
+          .summary-val-with-action {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+          }
+
+          .btn-withdraw-profit {
+            font-size: 11px;
+            padding: 6px 12px;
+            min-height: 30px;
+          }
         }
       `}</style>
     </div>

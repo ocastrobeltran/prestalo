@@ -52,7 +52,7 @@ export const computeCapitalBox = (
 
   const manualAdjustments = transactions.reduce((acc, curr) => {
     if (curr.type === 'income') return acc + curr.amount;
-    if (curr.type === 'expense') return acc - Math.abs(curr.amount);
+    if (curr.type === 'expense' || curr.type === 'profit_withdrawal') return acc - Math.abs(curr.amount);
     return acc;
   }, 0);
 
@@ -217,25 +217,43 @@ const fromDbCapitalBox = (row: any): CapitalBox => ({
   totalInterestRecovered: Number(row.total_interest_recovered)
 });
 
-const toDbTransaction = (t: CapitalTransaction, userId?: string) => ({
-  id: t.id,
-  user_id: t.userId || userId || currentUserId,
-  amount: t.amount,
-  type: t.type,
-  description: t.description,
-  date: t.date,
-  reference_id: t.referenceId || null
-});
+const toDbTransaction = (t: CapitalTransaction, userId?: string) => {
+  const isProfitWithdrawal = t.type === 'profit_withdrawal';
+  const dbType = isProfitWithdrawal ? 'expense' : t.type;
+  let dbDescription = t.description;
+  if (isProfitWithdrawal && !dbDescription.startsWith('[Retiro Ganancias]')) {
+    dbDescription = `[Retiro Ganancias] ${dbDescription}`;
+  }
 
-const fromDbTransaction = (row: any): CapitalTransaction => ({
-  id: row.id,
-  userId: row.user_id,
-  amount: Number(row.amount),
-  type: row.type,
-  description: row.description,
-  date: row.date,
-  referenceId: row.reference_id || undefined
-});
+  return {
+    id: t.id,
+    user_id: t.userId || userId || currentUserId,
+    amount: t.amount,
+    type: dbType,
+    description: dbDescription,
+    date: t.date,
+    reference_id: t.referenceId || null
+  };
+};
+
+const fromDbTransaction = (row: any): CapitalTransaction => {
+  let txType = row.type as CapitalTransaction['type'];
+  let desc = row.description || '';
+  if (txType === 'expense' && desc.startsWith('[Retiro Ganancias]')) {
+    txType = 'profit_withdrawal';
+    desc = desc.replace(/^\[Retiro Ganancias\]\s*/, '');
+  }
+
+  return {
+    id: row.id,
+    userId: row.user_id,
+    amount: Number(row.amount),
+    type: txType,
+    description: desc,
+    date: row.date,
+    referenceId: row.reference_id || undefined
+  };
+};
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
@@ -633,6 +651,20 @@ export const supabaseSyncService = {
       this.setStatus('synced');
     } catch (err) {
       console.error('Error syncUpCapitalBox:', err);
+      this.setStatus('error');
+    }
+  },
+
+  async syncUpTransaction(tx: CapitalTransaction): Promise<void> {
+    if (!this.isOnline()) return;
+    try {
+      this.setStatus('syncing');
+      const userId = await this.getAuthUserId();
+      const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
+      if (txErr) throw txErr;
+      this.setStatus('synced');
+    } catch (err) {
+      console.error('Error syncUpTransaction:', err);
       this.setStatus('error');
     }
   },
