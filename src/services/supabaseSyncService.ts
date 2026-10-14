@@ -412,7 +412,34 @@ export const supabaseSyncService = {
       const clients = (clientsData || []).map(fromDbClient);
       const loans = (loansData || []).map(fromDbLoan);
       const rawInstallments = (instData || []).map(fromDbInstallment);
-      const transactions = (txData || []).map(fromDbTransaction);
+      const rawTransactions = (txData || []).map(fromDbTransaction);
+      const validLoanIds = new Set(loans.map(l => l.id));
+
+      // Auto-Sanación (Self-Healing) de transacciones huérfanas/erróneas:
+      const orphanTxIds: string[] = [];
+      const transactions = rawTransactions.filter(tx => {
+        // a) Aquellas con type === 'expense' y cuya descripción empiece o contenga 'Eliminación de Préstamo'
+        const isDeleteExpense = tx.type === 'expense' && (/eliminaci[óo]n de pr[ée]stamo/i.test(tx.description || ''));
+        // b) Aquellas con type === 'loan_disbursement' o 'installment_payment' cuyo referenceId no corresponda a ningún préstamo en loans
+        const isOrphanLoanDisbursementOrPayment =
+          (tx.type === 'loan_disbursement' || tx.type === 'installment_payment') &&
+          (!tx.referenceId || !validLoanIds.has(tx.referenceId));
+
+        if (isDeleteExpense || isOrphanLoanDisbursementOrPayment) {
+          orphanTxIds.push(tx.id);
+          return false;
+        }
+        return true;
+      });
+
+      if (orphanTxIds.length > 0) {
+        console.warn(`[Self-Healing SyncDown] Se detectaron ${orphanTxIds.length} transacciones huérfanas/erróneas. Purgando en Supabase...`, orphanTxIds);
+        // En segundo plano, elimínalas de Supabase
+        supabase.from('transactions').delete().in('id', orphanTxIds).then(({ error }) => {
+          if (error) console.error('[Self-Healing SyncDown] Error al eliminar transacciones huérfanas en Supabase:', error);
+          else console.log('[Self-Healing SyncDown] Transacciones huérfanas eliminadas exitosamente en Supabase.');
+        });
+      }
 
       const loansMap = new Map<string, Loan>();
       loans.forEach(l => loansMap.set(l.id, l));
@@ -487,9 +514,9 @@ export const supabaseSyncService = {
       setLocal('capital', capitalBox);
       setLocal('transactions', transactions);
 
-      if (userId && !boxData) {
-        // Solo registrar remotamente si aún no existía en Supabase
-        supabase.from('capital_box').upsert(toDbCapitalBox(capitalBox, userId)).then();
+      if (userId && (orphanTxIds.length > 0 || !boxData)) {
+        // Actualizar remotamente en Supabase para persistir el balance corregido
+        await supabase.from('capital_box').upsert(toDbCapitalBox(capitalBox, userId));
       }
 
       this.setStatus('synced');
@@ -501,6 +528,11 @@ export const supabaseSyncService = {
       this.setStatus('error');
       return false;
     }
+  },
+
+  // Descargar todos los datos remotos (alias para syncDown con auto-sanación)
+  async fetchAllRemoteData(onComplete?: () => void): Promise<boolean> {
+    return this.syncDown(onComplete);
   },
 
   // Subir todo el localStorage a Supabase (inicialización o importación de respaldo)
@@ -589,7 +621,7 @@ export const supabaseSyncService = {
     }
   },
 
-  async deleteRemoteLoan(id: string, tx?: CapitalTransaction, box?: CapitalBox): Promise<void> {
+  async deleteRemoteLoan(id: string, box?: CapitalBox): Promise<void> {
     if (!this.isOnline()) return;
     try {
       this.setStatus('syncing');
@@ -597,10 +629,10 @@ export const supabaseSyncService = {
       const { error: loanErr } = await supabase.from('loans').delete().eq('id', id);
       if (loanErr) throw loanErr;
 
-      if (tx) {
-        const { error: txErr } = await supabase.from('transactions').upsert(toDbTransaction(tx, userId || undefined));
-        if (txErr) throw txErr;
-      }
+      // Borra de Supabase las transacciones asociadas a ese préstamo
+      await supabase.from('transactions').delete().eq('reference_id', id);
+      await supabase.from('transactions').delete().ilike('description', `%${id}%`);
+
       if (box) {
         const { error: boxErr } = await supabase.from('capital_box').upsert(toDbCapitalBox(box, userId || undefined));
         if (boxErr) throw boxErr;

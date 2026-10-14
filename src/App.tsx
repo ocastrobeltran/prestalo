@@ -17,7 +17,8 @@ import { WithdrawProfitModal } from './components/capital/WithdrawProfitModal';
 import { PaywallModal } from './components/subscription/PaywallModal';
 import { DeleteAccountModal } from './components/auth/DeleteAccountModal';
 import { storageService } from './services/storageService';
-import { calculateFinancialSummary } from './services/loanCalculator';
+import { calculateFinancialSummary, formatCurrency } from './services/loanCalculator';
+import { Toast, type ToastData } from './components/common/Toast';
 import { supabaseSyncService } from './services/supabaseSyncService';
 import { supabase } from './services/supabaseClient';
 import { notificationService } from './services/notificationService';
@@ -115,6 +116,7 @@ const MainApp: React.FC = () => {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isWithdrawProfitModalOpen, setIsWithdrawProfitModalOpen] = useState(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
 
   // Contexto de Suscripción
   const { canCreateClient, canCreateLoan, isPaywallOpen, closePaywall } = useSubscription();
@@ -260,8 +262,19 @@ const MainApp: React.FC = () => {
   };
 
   const handleDeleteLoan = (id: string) => {
+    const loanToDelete = loans.find(l => l.id === id);
+    const capitalRefunded = loanToDelete?.capital || 0;
+    const clientName = loanToDelete?.clientName || 'Cliente';
+
     storageService.deleteLoan(id);
     refreshData();
+
+    setToast({
+      title: 'Préstamo Eliminado',
+      message: `Se reintegraron ${formatCurrency(capitalRefunded)} al Disponible en Caja (${clientName}).`,
+      type: 'success',
+      duration: 4500
+    });
   };
 
   const handleViewReceipt = (loan: Loan) => {
@@ -508,6 +521,9 @@ const MainApp: React.FC = () => {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
       />
+
+      {/* Retroalimentación visual global (Toasts) */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </>
   );
 };

@@ -101,6 +101,49 @@ export const storageService = {
 
     // Auto-sanación de cuotas huérfanas o faltantes al inicializar
     this.healMissingInstallments();
+    this.healOrphanTransactions();
+  },
+
+  // Mecanismo de auto-sanación de transacciones huérfanas o erróneas en localStorage
+  healOrphanTransactions(): CapitalTransaction[] {
+    const rawLoans = localStorage.getItem(getKey('loans'));
+    const rawTransactions = localStorage.getItem(getKey('transactions'));
+    if (!rawTransactions) return [];
+
+    let loans: Loan[] = [];
+    let transactions: CapitalTransaction[] = [];
+    try {
+      loans = rawLoans ? JSON.parse(rawLoans) : [];
+      transactions = JSON.parse(rawTransactions);
+    } catch (e) {
+      console.error('Error parseando transacciones para auto-sanación local:', e);
+      return [];
+    }
+
+    if (!Array.isArray(transactions) || transactions.length === 0) return [];
+    const validLoanIds = new Set((Array.isArray(loans) ? loans : []).map(l => l.id));
+
+    let hasOrphans = false;
+    const cleanTransactions = transactions.filter(t => {
+      const isDeleteExpense = t.type === 'expense' && (/eliminaci[óo]n de pr[ée]stamo/i.test(t.description || ''));
+      const isOrphanLoanDisbursementOrPayment =
+        (t.type === 'loan_disbursement' || t.type === 'installment_payment') &&
+        (!t.referenceId || !validLoanIds.has(t.referenceId));
+
+      if (isDeleteExpense || isOrphanLoanDisbursementOrPayment) {
+        hasOrphans = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (hasOrphans) {
+      console.warn('[Self-Healing Local] Se purgaron transacciones huérfanas/erróneas en localStorage');
+      localStorage.setItem(getKey('transactions'), JSON.stringify(cleanTransactions));
+      this.reconcileCapitalBox();
+    }
+
+    return cleanTransactions;
   },
 
   // Mecanismo de auto-sanación (self-healing) de cuotas huérfanas o faltantes
@@ -256,13 +299,14 @@ export const storageService = {
       status: 'active'
     };
     
-    loans.push(newLoan);
-    localStorage.setItem(getKey('loans'), JSON.stringify(loans));
-    
-    // Guardar cuotas
+    // 1. Obtener y guardar cuotas primero
     const allInstallments = this.getInstallments();
     allInstallments.push(...installments);
     localStorage.setItem(getKey('installments'), JSON.stringify(allInstallments));
+
+    // 2. Guardar el nuevo préstamo después de que sus cuotas ya existen
+    loans.push(newLoan);
+    localStorage.setItem(getKey('loans'), JSON.stringify(loans));
     
     // Registrar transacción
     const tx = this.addTransaction({
@@ -291,17 +335,14 @@ export const storageService = {
     const updatedInstallments = this.getInstallments().filter(i => i.loanId !== id);
     localStorage.setItem(getKey('installments'), JSON.stringify(updatedInstallments));
     
-    // Registrar transacción de reverso y reconciliar caja
-    let tx: CapitalTransaction | undefined;
-    if (loan.status === 'active' || loan.status === 'overdue') {
-      tx = this.addTransaction({
-        amount: loan.capital,
-        type: 'expense',
-        description: `Eliminación de Préstamo ${loan.status === 'overdue' ? 'en Mora' : 'Activo'} ID: ${loan.id}`
-      });
-    }
+    // Limpia de transactions las transacciones huérfanas asociadas a este préstamo
+    const transactions = this.getTransactions();
+    const updatedTransactions = transactions.filter(t => t.referenceId !== id && !t.description.includes(id));
+    localStorage.setItem(getKey('transactions'), JSON.stringify(updatedTransactions));
+
+    // Reconciliar caja de capital
     const capitalBox = this.reconcileCapitalBox();
-    supabaseSyncService.deleteRemoteLoan(id, tx, capitalBox);
+    supabaseSyncService.deleteRemoteLoan(id, capitalBox);
   },
 
   // INSTALLMENTS (CUOTAS)

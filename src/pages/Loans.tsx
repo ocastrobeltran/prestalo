@@ -4,6 +4,7 @@ import { formatCurrency, getPaidBreakdownForInstallment, getInstallmentEffective
 import { Search, FilePlus, FileText, Trash2, ChevronDown, ChevronUp, DollarSign, CheckCircle2 } from 'lucide-react';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { Badge } from '../components/common/Badge';
+import { DeleteLoanModal } from '../components/loans/DeleteLoanModal';
 
 interface LoansProps {
   loans: Loan[];
@@ -29,6 +30,7 @@ export const Loans: React.FC<LoansProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<LoanStatusFilter>(initialStatusFilter);
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
+  const [loanPendingDelete, setLoanPendingDelete] = useState<Loan | null>(null);
 
   React.useEffect(() => {
     if (initialStatusFilter) {
@@ -99,10 +101,16 @@ export const Loans: React.FC<LoansProps> = ({
     }
   };
 
-  const handleDeleteClick = (id: string, clientName: string) => {
-    if (window.confirm(`¿Está seguro de eliminar el préstamo de "${clientName}"? Esta acción no se puede deshacer y revertirá los desembolsos en la caja.`)) {
-      onDeleteLoan(id);
+  const handleDeleteClick = (loan: Loan) => {
+    setLoanPendingDelete(loan);
+  };
+
+  const handleConfirmDelete = (loan: Loan) => {
+    if (expandedLoanId === loan.id) {
+      setExpandedLoanId(null);
     }
+    onDeleteLoan(loan.id);
+    setLoanPendingDelete(null);
   };
 
   return (
@@ -260,7 +268,12 @@ export const Loans: React.FC<LoansProps> = ({
                     <FileText size={14} />
                     PDF
                   </button>
-                  <button className="loan-action-btn delete" onClick={() => handleDeleteClick(loan.id, loan.clientName)}>
+                  <button 
+                    className="loan-action-btn delete" 
+                    onClick={() => handleDeleteClick(loan)}
+                    title="Eliminar préstamo y reintegrar capital"
+                    aria-label={`Eliminar préstamo de ${loan.clientName}`}
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -342,6 +355,13 @@ export const Loans: React.FC<LoansProps> = ({
           })
         )}
       </div>
+
+      <DeleteLoanModal
+        isOpen={Boolean(loanPendingDelete)}
+        loan={loanPendingDelete}
+        onClose={() => setLoanPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
 
       <style>{`
         .loans-container {
@@ -587,7 +607,18 @@ export const Loans: React.FC<LoansProps> = ({
         .loan-action-btn.delete {
           background-color: rgba(239, 68, 68, 0.08);
           color: var(--danger);
-          border: 1px solid rgba(239, 68, 68, 0.15);
+          border: 1px solid rgba(239, 68, 68, 0.18);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .loan-action-btn.delete:hover {
+          background-color: rgba(239, 68, 68, 0.18);
+          border-color: rgba(239, 68, 68, 0.35);
+          transform: translateY(-1px);
+        }
+
+        .loan-action-btn.delete:active {
+          transform: scale(0.95);
         }
 
         .loan-installments-section {
